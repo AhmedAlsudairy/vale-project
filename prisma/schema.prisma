@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model EquipmentMaster {
+  id               Int      @id @default(autoincrement())
+  tagNo            String   @unique @map("tag_no")
+  equipmentName    String   @map("equipment_name")
+  equipmentType    String   @map("equipment_type")
+  location         String?
+  installationDate DateTime? @map("installation_date")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  carbonBrushRecords CarbonBrushRecord[]
+  windingResistanceRecords WindingResistanceRecord[]
+
+  @@map("equipment_master")
+}
+
+model CarbonBrushRecord {
+  id                 Int      @id @default(autoincrement())
+  tagNo              String   @map("tag_no")
+  equipmentName      String   @map("equipment_name")
+  brushType          String   @default("C80X") @map("brush_type")
+  inspectionDate     DateTime @map("inspection_date")
+  workOrderNo        String?  @map("work_order_no")
+  doneBy             String?  @map("done_by")
+  measurements       Json
+  slipRingThickness  Float    @map("slip_ring_thickness")
+  slipRingIr         Float    @map("slip_ring_ir")
+  remarks            String?
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  equipment EquipmentMaster? @relation(fields: [tagNo], references: [tagNo])
+
+  @@map("carbon_brush_records")
+}
+
+model WindingResistanceRecord {
+  id                 Int      @id @default(autoincrement())
+  motorNo            String   @map("motor_no")
+  windingResistance  Json     @map("winding_resistance")
+  irValues           Json     @map("ir_values")
+  polarizationIndex  Float?   @map("polarization_index")
+  darValues          Json?    @map("dar_values")
+  inspectionDate     DateTime @map("inspection_date")
+  doneBy             String?  @map("done_by")
+  remarks            String?
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  equipment EquipmentMaster? @relation(fields: [motorNo], references: [tagNo])
+
+  @@map("winding_resistance_records")
+}
