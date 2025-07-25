@@ -2,11 +2,12 @@ import { NextResponse, type NextRequest } from "next/server"
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { prisma } = await import("@/lib/prisma")
-    const equipmentId = parseInt(params.id)
+    const { id } = await params
+    const equipmentId = parseInt(id)
 
     const equipment = await prisma.equipmentMaster.findUnique({
       where: {

@@ -3,11 +3,12 @@ import { generateQRFromData } from "@/lib/qr-utils"
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { prisma } = await import("@/lib/prisma")
-    const equipmentId = parseInt(params.id)
+    const { id } = await params
+    const equipmentId = parseInt(id)
 
     // Get equipment details
     const equipment = await prisma.equipmentMaster.findUnique({

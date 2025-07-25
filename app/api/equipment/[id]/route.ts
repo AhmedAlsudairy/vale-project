@@ -2,11 +2,12 @@ import { NextResponse, type NextRequest } from "next/server"
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { prisma } = await import("@/lib/prisma")
-    const equipmentId = parseInt(params.id)
+    const { id } = await params
+    const equipmentId = parseInt(id)
 
     const equipment = await prisma.equipmentMaster.findUnique({
       where: {
@@ -45,11 +46,12 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { prisma } = await import("@/lib/prisma")
-    const equipmentId = parseInt(params.id)
+    const { id } = await params
+    const equipmentId = parseInt(id)
     const body = await request.json()
     const { tag_no, equipment_name, equipment_type, location, installation_date } = body
 
@@ -75,11 +77,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { prisma } = await import("@/lib/prisma")
-    const equipmentId = parseInt(params.id)
+    const { id } = await params
+    const equipmentId = parseInt(id)
 
     await prisma.equipmentMaster.delete({
       where: {
