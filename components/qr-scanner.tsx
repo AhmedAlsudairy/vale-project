@@ -65,59 +65,89 @@ export function QRScanner({ onScan }: QRScannerProps) {
         }
       }
 
-      if (videoRef.current && stream) {
-        setDebugInfo("Stream obtained, setting up video...")
-        videoRef.current.srcObject = stream
-        
-        // Force video attributes for mobile compatibility
-        videoRef.current.setAttribute('playsinline', 'true')
-        videoRef.current.setAttribute('webkit-playsinline', 'true')
-        videoRef.current.muted = true
-        
-        // Wait for video to load and play
-        const playPromise = new Promise<void>((resolve, reject) => {
-          if (!videoRef.current) {
-            reject(new Error("Video ref is null"))
-            return
-          }
+      if (!videoRef.current) {
+        setDebugInfo("Video ref is null")
+        setError("Video element not available")
+        return
+      }
 
-          const video = videoRef.current
+      if (!stream) {
+        setDebugInfo("Stream is null")
+        setError("Failed to get camera stream")
+        return
+      }
 
-          const onLoadedMetadata = () => {
-            setDebugInfo(`Video loaded: ${video.videoWidth}x${video.videoHeight}`)
-            video.play().then(() => {
+      setDebugInfo("Stream obtained, setting up video...")
+      const video = videoRef.current
+      video.srcObject = stream
+      
+      // Force video attributes for mobile compatibility
+      video.setAttribute('playsinline', 'true')
+      video.setAttribute('webkit-playsinline', 'true')
+      video.muted = true
+      video.autoplay = true
+      
+      // Wait for video to load and play
+      const playPromise = new Promise<void>((resolve, reject) => {
+        const onLoadedMetadata = () => {
+          setDebugInfo(`Video metadata loaded: ${video.videoWidth}x${video.videoHeight}`)
+          
+          // Try to play the video
+          const playAttempt = video.play()
+          if (playAttempt && typeof playAttempt.then === 'function') {
+            playAttempt.then(() => {
               setDebugInfo("Video playing successfully")
               setIsScanning(true)
               resolve()
             }).catch((playError) => {
               setDebugInfo(`Play error: ${playError.message}`)
-              reject(playError)
+              // Sometimes play fails but video still works, so let's continue
+              setIsScanning(true)
+              resolve()
             })
+          } else {
+            setDebugInfo("Video play called synchronously")
+            setIsScanning(true)
+            resolve()
           }
+        }
 
-          const onError = () => {
-            setDebugInfo("Video error occurred")
-            reject(new Error("Video error"))
+        const onError = (e: Event) => {
+          setDebugInfo(`Video error: ${(e as any).message || 'Unknown video error'}`)
+          reject(new Error("Video error"))
+        }
+
+        const onCanPlay = () => {
+          setDebugInfo("Video can play event fired")
+        }
+
+        video.addEventListener('loadedmetadata', onLoadedMetadata, { once: true })
+        video.addEventListener('error', onError, { once: true })
+        video.addEventListener('canplay', onCanPlay, { once: true })
+
+        // Force load if not already loading
+        if (video.readyState < 1) {
+          video.load()
+        }
+
+        // Timeout fallback
+        setTimeout(() => {
+          video.removeEventListener('loadedmetadata', onLoadedMetadata)
+          video.removeEventListener('error', onError)
+          video.removeEventListener('canplay', onCanPlay)
+          
+          if (video.readyState >= 2) {
+            setDebugInfo("Video ready via timeout fallback")
+            setIsScanning(true)
+            resolve()
+          } else {
+            setDebugInfo("Video loading timeout - no metadata")
+            reject(new Error("Video loading timeout"))
           }
+        }, 8000)
+      })
 
-          video.addEventListener('loadedmetadata', onLoadedMetadata, { once: true })
-          video.addEventListener('error', onError, { once: true })
-
-          // Cleanup listeners after 10 seconds
-          setTimeout(() => {
-            video.removeEventListener('loadedmetadata', onLoadedMetadata)
-            video.removeEventListener('error', onError)
-            if (!video.videoWidth) {
-              reject(new Error("Video loading timeout"))
-            }
-          }, 10000)
-        })
-
-        await playPromise
-      } else {
-        setDebugInfo("Failed to get stream or video ref")
-        setError("Failed to initialize camera")
-      }
+      await playPromise
     } catch (err) {
       console.error("Error accessing camera:", err)
       setDebugInfo(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
@@ -298,6 +328,8 @@ export function QRScanner({ onScan }: QRScannerProps) {
                 playsInline
                 webkit-playsinline="true"
                 muted
+                controls={false}
+                preload="auto"
                 className="w-full rounded-lg bg-black"
                 style={{ 
                   aspectRatio: "4/3",
@@ -320,6 +352,9 @@ export function QRScanner({ onScan }: QRScannerProps) {
                 onLoadedData={() => {
                   setDebugInfo("Video data loaded")
                 }}
+                onLoadedMetadata={() => {
+                  setDebugInfo("Video metadata loaded")
+                }}
                 onError={(e) => {
                   console.error("Video error:", e)
                   setError("Video playback error. Please try again.")
@@ -329,14 +364,17 @@ export function QRScanner({ onScan }: QRScannerProps) {
               <canvas ref={canvasRef} className="hidden" />
 
               {/* Loading indicator while video loads */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 rounded-lg text-white text-center p-4">
-                <div className="text-sm mb-2">
-                  {videoRef.current?.videoWidth ? "Camera Active" : "Loading camera..."}
+              {(!videoRef.current?.videoWidth || videoRef.current?.readyState < 2) && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 rounded-lg text-white text-center p-4">
+                  <div className="text-sm mb-2">
+                    {videoRef.current?.videoWidth ? "Camera Active" : "Loading camera..."}
+                  </div>
+                  {debugInfo && (
+                    <div className="text-xs opacity-75">{debugInfo}</div>
+                  )}
+                  <div className="mt-2 w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 </div>
-                {debugInfo && (
-                  <div className="text-xs opacity-75">{debugInfo}</div>
-                )}
-              </div>
+              )}
 
               {/* Scanning Overlay */}
               <div className="absolute inset-0 border-2 border-primary rounded-lg pointer-events-none">
