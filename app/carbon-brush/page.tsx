@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,7 +15,8 @@ import { forecastBrushLife } from "@/lib/forecast"
 import { Download, Plus, TrendingUp, AlertTriangle, Calendar, User, FileText, Settings, Info, X } from "lucide-react"
 import { Combobox } from "@/components/ui/combobox"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { ErrorBoundary } from "@/components/error-boundary"
+import { cn } from "@/lib/utils"
+import { ErrorBoundary, withErrorBoundary } from "@/components/error-boundary"
 
 interface CarbonBrushRecord {
   id: number
@@ -43,7 +44,7 @@ interface Equipment {
   location: string | null
 }
 
-export default function CarbonBrushPage() {
+function CarbonBrushPage() {
   const [records, setRecords] = useState<CarbonBrushRecord[]>([])
   const [equipment, setEquipment] = useState<Equipment[]>([])
   const [selectedTagNo, setSelectedTagNo] = useState("")
@@ -263,8 +264,8 @@ export default function CarbonBrushPage() {
         setSelectedTagNo(parsed.tagNo)
         setFormData(prev => ({
           ...prev,
-          tagNo: parsed.tagNo,
-          equipmentName: parsed.equipmentName || ""
+          tag_no: parsed.tagNo,
+          equipment_name: parsed.equipmentName || ""
         }))
         return
       }
@@ -288,8 +289,8 @@ export default function CarbonBrushPage() {
             setSelectedTagNo(foundEquipment.tagNo)
             setFormData(prev => ({
               ...prev,
-              tagNo: foundEquipment.tagNo,
-              equipmentName: foundEquipment.equipmentName
+              tag_no: foundEquipment.tagNo,
+              equipment_name: foundEquipment.equipmentName
             }))
           }
         }
@@ -301,8 +302,8 @@ export default function CarbonBrushPage() {
         setSelectedTagNo(foundEquipment.tagNo)
         setFormData(prev => ({
           ...prev,
-          tagNo: foundEquipment.tagNo,
-          equipmentName: foundEquipment.equipmentName
+          tag_no: foundEquipment.tagNo,
+          equipment_name: foundEquipment.equipmentName
         }))
       }
     }
@@ -898,6 +899,4 @@ export default function CarbonBrushPage() {
 }
 
 // Add missing cn utility function import
-function cn(...classes: (string | undefined | null | false)[]): string {
-  return classes.filter(Boolean).join(" ")
-}
+export default withErrorBoundary(CarbonBrushPage)
