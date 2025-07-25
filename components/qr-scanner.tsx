@@ -16,6 +16,7 @@ export function QRScanner({ onScan }: QRScannerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isScanning, setIsScanning] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [debugInfo, setDebugInfo] = useState<string>("")
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const scanIntervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -23,51 +24,104 @@ export function QRScanner({ onScan }: QRScannerProps) {
   const startScanning = async () => {
     try {
       setError(null)
+      setDebugInfo("Requesting camera access...")
       
-      // Request camera access with fallback constraints
+      // Check if mediaDevices is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        setError("Camera access not supported on this device/browser.")
+        return
+      }
+
+      // Request camera access with progressive fallback
       let stream: MediaStream | null = null
       
       try {
+        setDebugInfo("Trying back camera...")
         // Try with back camera first
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: "environment",
-            width: { ideal: 1280, min: 640 },
-            height: { ideal: 720, min: 480 },
+            facingMode: { exact: "environment" },
+            width: { ideal: 1280, min: 320 },
+            height: { ideal: 720, min: 240 },
           },
         })
       } catch (err) {
-        // Fallback to any available camera
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280, min: 640 },
-            height: { ideal: 720, min: 480 },
-          },
-        })
+        try {
+          setDebugInfo("Trying any camera...")
+          // Fallback to any available camera
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: "environment",
+              width: { ideal: 1280, min: 320 },
+              height: { ideal: 720, min: 240 },
+            },
+          })
+        } catch (err2) {
+          setDebugInfo("Trying basic camera...")
+          // Final fallback - basic video request
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+          })
+        }
       }
 
       if (videoRef.current && stream) {
+        setDebugInfo("Stream obtained, setting up video...")
         videoRef.current.srcObject = stream
         
-        // Wait for video metadata to load
-        videoRef.current.onloadedmetadata = () => {
-          if (videoRef.current) {
-            videoRef.current.play().then(() => {
+        // Force video attributes for mobile compatibility
+        videoRef.current.setAttribute('playsinline', 'true')
+        videoRef.current.setAttribute('webkit-playsinline', 'true')
+        videoRef.current.muted = true
+        
+        // Wait for video to load and play
+        const playPromise = new Promise<void>((resolve, reject) => {
+          if (!videoRef.current) {
+            reject(new Error("Video ref is null"))
+            return
+          }
+
+          const video = videoRef.current
+
+          const onLoadedMetadata = () => {
+            setDebugInfo(`Video loaded: ${video.videoWidth}x${video.videoHeight}`)
+            video.play().then(() => {
+              setDebugInfo("Video playing successfully")
               setIsScanning(true)
+              resolve()
             }).catch((playError) => {
-              console.error("Error playing video:", playError)
-              setError("Could not start video playback. Please try again.")
+              setDebugInfo(`Play error: ${playError.message}`)
+              reject(playError)
             })
           }
-        }
 
-        // Handle video errors
-        videoRef.current.onerror = () => {
-          setError("Video stream error. Please try again.")
-        }
+          const onError = () => {
+            setDebugInfo("Video error occurred")
+            reject(new Error("Video error"))
+          }
+
+          video.addEventListener('loadedmetadata', onLoadedMetadata, { once: true })
+          video.addEventListener('error', onError, { once: true })
+
+          // Cleanup listeners after 10 seconds
+          setTimeout(() => {
+            video.removeEventListener('loadedmetadata', onLoadedMetadata)
+            video.removeEventListener('error', onError)
+            if (!video.videoWidth) {
+              reject(new Error("Video loading timeout"))
+            }
+          }, 10000)
+        })
+
+        await playPromise
+      } else {
+        setDebugInfo("Failed to get stream or video ref")
+        setError("Failed to initialize camera")
       }
     } catch (err) {
       console.error("Error accessing camera:", err)
+      setDebugInfo(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      
       if (err instanceof Error) {
         if (err.name === "NotAllowedError") {
           setError("Camera permission denied. Please allow camera access in your browser settings.")
@@ -75,8 +129,20 @@ export function QRScanner({ onScan }: QRScannerProps) {
           setError("No camera found. Please ensure a camera is connected and enabled.")
         } else if (err.name === "NotReadableError") {
           setError("Camera is already in use by another application. Please close other apps using the camera.")
+        } else if (err.name === "OverconstrainedError") {
+          setError("Camera constraints not supported. Trying basic camera access...")
+          // Try one more time with minimal constraints
+          try {
+            const basicStream = await navigator.mediaDevices.getUserMedia({ video: true })
+            if (videoRef.current) {
+              videoRef.current.srcObject = basicStream
+              setIsScanning(true)
+            }
+          } catch (basicErr) {
+            setError("Could not access camera with any settings.")
+          }
         } else {
-          setError("Could not access camera. Please check permissions and ensure it's not in use by another app.")
+          setError(`Camera error: ${err.message}`)
         }
       } else {
         setError("An unknown error occurred while accessing the camera.")
@@ -92,13 +158,17 @@ export function QRScanner({ onScan }: QRScannerProps) {
     if (videoRef.current?.srcObject) {
       const tracks = (videoRef.current.srcObject as MediaStream).getTracks()
       tracks.forEach((track) => track.stop())
+      videoRef.current.srcObject = null
     }
     setIsScanning(false)
+    setDebugInfo("")
   }
 
   const handleClose = () => {
     stopScanning()
     setIsOpen(false)
+    setError(null)
+    setDebugInfo("")
   }
 
   const scanQRCode = () => {
@@ -193,6 +263,12 @@ export function QRScanner({ onScan }: QRScannerProps) {
             </div>
           )}
 
+          {debugInfo && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-700">Debug: {debugInfo}</p>
+            </div>
+          )}
+
           {!isScanning ? (
             <div className="text-center space-y-4">
               <div className="mx-auto w-16 h-16 bg-muted rounded-full flex items-center justify-center">
@@ -220,32 +296,47 @@ export function QRScanner({ onScan }: QRScannerProps) {
                 ref={videoRef}
                 autoPlay
                 playsInline
+                webkit-playsinline="true"
                 muted
                 className="w-full rounded-lg bg-black"
                 style={{ 
                   aspectRatio: "4/3",
                   objectFit: "cover",
-                  maxHeight: "400px"
+                  maxHeight: "400px",
+                  minHeight: "200px"
                 }}
                 onCanPlay={() => {
                   console.log("Video can play")
                   if (videoRef.current) {
-                    console.log("Video dimensions:", videoRef.current.videoWidth, "x", videoRef.current.videoHeight)
+                    setDebugInfo(`Video ready: ${videoRef.current.videoWidth}x${videoRef.current.videoHeight}`)
                   }
+                }}
+                onPlaying={() => {
+                  setDebugInfo("Video is now playing")
+                }}
+                onLoadStart={() => {
+                  setDebugInfo("Video load started")
+                }}
+                onLoadedData={() => {
+                  setDebugInfo("Video data loaded")
                 }}
                 onError={(e) => {
                   console.error("Video error:", e)
                   setError("Video playback error. Please try again.")
+                  setDebugInfo("Video element error occurred")
                 }}
               />
               <canvas ref={canvasRef} className="hidden" />
 
               {/* Loading indicator while video loads */}
-              {!videoRef.current?.videoWidth && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
-                  <div className="text-white text-sm">Loading camera...</div>
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50 rounded-lg text-white text-center p-4">
+                <div className="text-sm mb-2">
+                  {videoRef.current?.videoWidth ? "Camera Active" : "Loading camera..."}
                 </div>
-              )}
+                {debugInfo && (
+                  <div className="text-xs opacity-75">{debugInfo}</div>
+                )}
+              </div>
 
               {/* Scanning Overlay */}
               <div className="absolute inset-0 border-2 border-primary rounded-lg pointer-events-none">
