@@ -23,17 +23,48 @@ export function QRScanner({ onScan }: QRScannerProps) {
   const startScanning = async () => {
     try {
       setError(null)
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "environment",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      })
-      if (videoRef.current) {
+      
+      // Request camera access with fallback constraints
+      let stream: MediaStream | null = null
+      
+      try {
+        // Try with back camera first
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: "environment",
+            width: { ideal: 1280, min: 640 },
+            height: { ideal: 720, min: 480 },
+          },
+        })
+      } catch (err) {
+        // Fallback to any available camera
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280, min: 640 },
+            height: { ideal: 720, min: 480 },
+          },
+        })
+      }
+
+      if (videoRef.current && stream) {
         videoRef.current.srcObject = stream
-        videoRef.current.play()
-        setIsScanning(true)
+        
+        // Wait for video metadata to load
+        videoRef.current.onloadedmetadata = () => {
+          if (videoRef.current) {
+            videoRef.current.play().then(() => {
+              setIsScanning(true)
+            }).catch((playError) => {
+              console.error("Error playing video:", playError)
+              setError("Could not start video playback. Please try again.")
+            })
+          }
+        }
+
+        // Handle video errors
+        videoRef.current.onerror = () => {
+          setError("Video stream error. Please try again.")
+        }
       }
     } catch (err) {
       console.error("Error accessing camera:", err)
@@ -42,6 +73,8 @@ export function QRScanner({ onScan }: QRScannerProps) {
           setError("Camera permission denied. Please allow camera access in your browser settings.")
         } else if (err.name === "NotFoundError") {
           setError("No camera found. Please ensure a camera is connected and enabled.")
+        } else if (err.name === "NotReadableError") {
+          setError("Camera is already in use by another application. Please close other apps using the camera.")
         } else {
           setError("Could not access camera. Please check permissions and ensure it's not in use by another app.")
         }
@@ -187,10 +220,32 @@ export function QRScanner({ onScan }: QRScannerProps) {
                 ref={videoRef}
                 autoPlay
                 playsInline
+                muted
                 className="w-full rounded-lg bg-black"
-                style={{ aspectRatio: "4/3" }}
+                style={{ 
+                  aspectRatio: "4/3",
+                  objectFit: "cover",
+                  maxHeight: "400px"
+                }}
+                onCanPlay={() => {
+                  console.log("Video can play")
+                  if (videoRef.current) {
+                    console.log("Video dimensions:", videoRef.current.videoWidth, "x", videoRef.current.videoHeight)
+                  }
+                }}
+                onError={(e) => {
+                  console.error("Video error:", e)
+                  setError("Video playback error. Please try again.")
+                }}
               />
               <canvas ref={canvasRef} className="hidden" />
+
+              {/* Loading indicator while video loads */}
+              {!videoRef.current?.videoWidth && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
+                  <div className="text-white text-sm">Loading camera...</div>
+                </div>
+              )}
 
               {/* Scanning Overlay */}
               <div className="absolute inset-0 border-2 border-primary rounded-lg pointer-events-none">
@@ -217,9 +272,14 @@ export function QRScanner({ onScan }: QRScannerProps) {
               Cancel
             </Button>
             {isScanning && (
-              <Button onClick={stopScanning} className="flex-1">
-                Stop Camera
-              </Button>
+              <>
+                <Button onClick={scanQRCode} variant="secondary" className="flex-1">
+                  Scan Now
+                </Button>
+                <Button onClick={stopScanning} className="flex-1">
+                  Stop Camera
+                </Button>
+              </>
             )}
           </div>
         </div>
