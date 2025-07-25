@@ -74,10 +74,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  let body
   try {
     const { prisma } = await import("@/lib/prisma")
+    body = await request.json()
 
-    const body = await request.json()
     const {
       tag_no,
       equipment_name,
@@ -90,6 +91,17 @@ export async function POST(request: NextRequest) {
       slip_ring_ir,
       remarks,
     } = body
+
+    // Ensure the equipment exists before creating a record
+    await prisma.equipmentMaster.upsert({
+      where: { tagNo: tag_no },
+      update: { equipmentName: equipment_name },
+      create: {
+        tagNo: tag_no,
+        equipmentName: equipment_name,
+        equipmentType: "Motor", // Provide a default or derive
+      },
+    })
 
     const record = await prisma.carbonBrushRecord.create({
       data: {
@@ -117,8 +129,15 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Database error:", error)
 
-    // Return a mock success response when database is not available
-    const body = await request.json()
+    // Avoid re-reading the body if it has already been read
+    if (!body) {
+      try {
+        body = await request.json()
+      } catch (parseError) {
+        return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+      }
+    }
+
     const mockRecord = {
       id: Date.now(),
       tagNo: body.tag_no,
