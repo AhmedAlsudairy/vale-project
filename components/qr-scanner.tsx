@@ -1,9 +1,12 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
+import jsQR from "jsqr"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { QrCode, Camera, X } from "lucide-react"
+import { QrCode, Camera, X, Upload } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 interface QRScannerProps {
   onScan: (data: string) => void
@@ -15,6 +18,7 @@ export function QRScanner({ onScan }: QRScannerProps) {
   const [error, setError] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const scanIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const startScanning = async () => {
     try {
@@ -28,27 +32,108 @@ export function QRScanner({ onScan }: QRScannerProps) {
       })
       if (videoRef.current) {
         videoRef.current.srcObject = stream
+        videoRef.current.play()
         setIsScanning(true)
       }
-    } catch (error) {
-      console.error("Error accessing camera:", error)
-      setError("Unable to access camera. Please check permissions.")
+    } catch (err) {
+      console.error("Error accessing camera:", err)
+      if (err instanceof Error) {
+        if (err.name === "NotAllowedError") {
+          setError("Camera permission denied. Please allow camera access in your browser settings.")
+        } else if (err.name === "NotFoundError") {
+          setError("No camera found. Please ensure a camera is connected and enabled.")
+        } else {
+          setError("Could not access camera. Please check permissions and ensure it's not in use by another app.")
+        }
+      } else {
+        setError("An unknown error occurred while accessing the camera.")
+      }
     }
   }
 
   const stopScanning = () => {
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current)
+      scanIntervalRef.current = null
+    }
     if (videoRef.current?.srcObject) {
       const tracks = (videoRef.current.srcObject as MediaStream).getTracks()
       tracks.forEach((track) => track.stop())
     }
     setIsScanning(false)
-    setError(null)
   }
 
   const handleClose = () => {
     stopScanning()
     setIsOpen(false)
   }
+
+  const scanQRCode = () => {
+    if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA && canvasRef.current) {
+      const canvas = canvasRef.current
+      const video = videoRef.current
+      const context = canvas.getContext("2d")
+
+      if (context) {
+        canvas.height = video.videoHeight
+        canvas.width = video.videoWidth
+        context.drawImage(video, 0, 0, canvas.width, canvas.height)
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "dontInvert",
+        })
+
+        if (code) {
+          onScan(code.data)
+          handleClose()
+        }
+      }
+    }
+  }
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement("canvas")
+        canvas.width = img.width
+        canvas.height = img.height
+        const context = canvas.getContext("2d")
+        if (context) {
+          context.drawImage(img, 0, 0, img.width, img.height)
+          const imageData = context.getImageData(0, 0, img.width, img.height)
+          const code = jsQR(imageData.data, imageData.width, imageData.height)
+          if (code) {
+            onScan(code.data)
+            handleClose()
+          } else {
+            setError("No QR code found in the uploaded image.")
+          }
+        }
+      }
+      img.src = e.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  }
+
+  useEffect(() => {
+    if (isScanning) {
+      scanIntervalRef.current = setInterval(scanQRCode, 500)
+    } else {
+      if (scanIntervalRef.current) {
+        clearInterval(scanIntervalRef.current)
+      }
+    }
+    return () => {
+      if (scanIntervalRef.current) {
+        clearInterval(scanIntervalRef.current)
+      }
+    }
+  }, [isScanning])
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -82,12 +167,18 @@ export function QRScanner({ onScan }: QRScannerProps) {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Position the QR code within the camera frame to scan
+                  Position the QR code within the camera frame to scan, or upload an image.
                 </p>
                 <Button onClick={startScanning} className="w-full">
                   <Camera className="w-4 h-4 mr-2" />
                   Start Camera
                 </Button>
+                <div className="my-4">
+                  <Label htmlFor="qr-upload" className="text-sm text-muted-foreground">
+                    Or upload a QR code image
+                  </Label>
+                  <Input id="qr-upload" type="file" accept="image/*" onChange={handleFileChange} className="mt-2" />
+                </div>
               </div>
             </div>
           ) : (
