@@ -332,7 +332,7 @@ function CarbonBrushPage() {
 
     return forecastBrushLife(historicalData)
   }
-
+//this is date formatter function
   const formatDate = (dateString: string) => {
     try {
       return new Date(dateString).toLocaleDateString("en-US", {
