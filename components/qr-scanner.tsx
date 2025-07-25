@@ -24,13 +24,29 @@ export function QRScanner({ onScan }: QRScannerProps) {
   const startScanning = async () => {
     try {
       setError(null)
-      setDebugInfo("Requesting camera access...")
+      setDebugInfo("Initializing scanner...")
       
       // Check if mediaDevices is supported
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         setError("Camera access not supported on this device/browser.")
         return
       }
+
+      // Wait for video element to be available
+      let attempts = 0
+      while (!videoRef.current && attempts < 20) {
+        setDebugInfo(`Waiting for video element... (${attempts + 1}/20)`)
+        await new Promise(resolve => setTimeout(resolve, 100))
+        attempts++
+      }
+
+      if (!videoRef.current) {
+        setDebugInfo("Video element never became available")
+        setError("Video element not ready. Please try again.")
+        return
+      }
+
+      setDebugInfo("Video element ready, requesting camera access...")
 
       // Request camera access with progressive fallback
       let stream: MediaStream | null = null
