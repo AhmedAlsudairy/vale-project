@@ -73,6 +73,8 @@ export function EquipmentForm({ open, onClose, onSubmit, initialData }: Equipmen
 
   const equipmentTypes = [
     "Motor",
+    "Motor 500v",
+    "5kv motor",
     "Generator",
     "Transformer",
     "Pump",

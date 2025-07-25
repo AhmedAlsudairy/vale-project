@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -62,6 +63,7 @@ function CarbonBrushPage() {
   const [formData, setFormData] = useState({
     tag_no: "",
     equipment_name: "",
+    equipment_type: "Motor",
     brush_type: "C80X",
     inspection_date: new Date().toISOString().split("T")[0],
     work_order_no: "",
@@ -82,6 +84,22 @@ function CarbonBrushPage() {
     slip_ring_ir: 0,
     remarks: "",
   })
+
+  // Equipment types available
+  const equipmentTypes = [
+    "Motor",
+    "Motor 500v",
+    "5kv motor",
+    "Generator",
+    "Transformer",
+    "Pump",
+    "Compressor",
+    "Fan",
+    "Conveyor",
+    "Crusher",
+    "Mill",
+    "Other"
+  ]
 
   // Reference values for guidance
   const referenceValues = {
@@ -197,7 +215,11 @@ function CarbonBrushPage() {
 
     const selectedEquipment = equipment.find((eq) => eq.tagNo === tagNo)
     if (selectedEquipment) {
-      setFormData((prev) => ({ ...prev, equipment_name: selectedEquipment.equipmentName }))
+      setFormData((prev) => ({ 
+        ...prev, 
+        equipment_name: selectedEquipment.equipmentName,
+        equipment_type: selectedEquipment.equipmentType || "Motor"
+      }))
     }
   }
 
@@ -218,6 +240,7 @@ function CarbonBrushPage() {
         setFormData({
           tag_no: "",
           equipment_name: "",
+          equipment_type: "Motor",
           brush_type: "C80X",
           inspection_date: new Date().toISOString().split("T")[0],
           work_order_no: "",
@@ -265,7 +288,8 @@ function CarbonBrushPage() {
         setFormData(prev => ({
           ...prev,
           tag_no: parsed.tagNo,
-          equipment_name: parsed.equipmentName || ""
+          equipment_name: parsed.equipmentName || "",
+          equipment_type: parsed.equipmentType || "Motor"
         }))
         return
       }
@@ -290,7 +314,8 @@ function CarbonBrushPage() {
             setFormData(prev => ({
               ...prev,
               tag_no: foundEquipment.tagNo,
-              equipment_name: foundEquipment.equipmentName
+              equipment_name: foundEquipment.equipmentName,
+              equipment_type: foundEquipment.equipmentType || "Motor"
             }))
           }
         }
@@ -303,7 +328,8 @@ function CarbonBrushPage() {
         setFormData(prev => ({
           ...prev,
           tag_no: foundEquipment.tagNo,
-          equipment_name: foundEquipment.equipmentName
+          equipment_name: foundEquipment.equipmentName,
+          equipment_type: foundEquipment.equipmentType || "Motor"
         }))
       }
     }
@@ -537,6 +563,27 @@ function CarbonBrushPage() {
                       placeholder="e.g., Induration Fan Motor"
                       className="w-full"
                     />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="equipment_type" className="text-sm font-medium">
+                      Equipment Type
+                    </Label>
+                    <Select 
+                      value={formData.equipment_type} 
+                      onValueChange={(value) => setFormData((prev) => ({ ...prev, equipment_type: value }))}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select equipment type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {equipmentTypes.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="space-y-2">

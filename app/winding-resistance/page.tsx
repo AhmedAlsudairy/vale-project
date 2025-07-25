@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -70,6 +71,7 @@ export default function WindingResistancePage() {
   const [formData, setFormData] = useState({
     motor_no: "",
     equipment_name: "",
+    equipment_type: "Motor",
     inspection_date: new Date().toISOString().split("T")[0],
     done_by: "",
     winding_resistance: {
@@ -95,6 +97,54 @@ export default function WindingResistancePage() {
     },
     remarks: "",
   })
+
+  // Equipment types available
+  const equipmentTypes = [
+    "Motor",
+    "Motor 500v",
+    "5kv motor",
+    "Generator",
+    "Transformer",
+    "Pump",
+    "Compressor",
+    "Fan",
+    "Conveyor",
+    "Crusher",
+    "Mill",
+    "Other"
+  ]
+
+  // Helper function to get voltage title based on equipment type
+  const getVoltageTitle = (equipmentType: string) => {
+    switch (equipmentType) {
+      case "Motor 500v":
+        return "500V"
+      case "5kv motor":
+        return "5kV"
+      case "Transformer":
+        return "5kV"
+      default:
+        return "500V"
+    }
+  }
+
+  // Helper function to get IR Values title based on equipment type
+  const getIRTitle = (equipmentType: string) => {
+    const voltage = getVoltageTitle(equipmentType)
+    if (equipmentType === "Transformer") {
+      return `IR Values (primary ${voltage})`
+    }
+    return `IR Values (${voltage})`
+  }
+
+  // Helper function to get DAR Values title based on equipment type
+  const getDARTitle = (equipmentType: string) => {
+    const voltage = getVoltageTitle(equipmentType)
+    if (equipmentType === "Transformer") {
+      return `DAR Values (primary ${voltage})`
+    }
+    return `DAR Values (${voltage})`
+  }
 
   // Reference values for guidance
   const referenceValues = {
@@ -241,7 +291,11 @@ export default function WindingResistancePage() {
 
     const selectedEquipment = equipment.find((eq) => eq.tagNo === motorNo)
     if (selectedEquipment) {
-      setFormData((prev) => ({ ...prev, equipment_name: selectedEquipment.equipmentName }))
+      setFormData((prev) => ({ 
+        ...prev, 
+        equipment_name: selectedEquipment.equipmentName,
+        equipment_type: selectedEquipment.equipmentType || "Motor"
+      }))
     }
   }
 
@@ -356,6 +410,7 @@ export default function WindingResistancePage() {
         setFormData({
           motor_no: "",
           equipment_name: "",
+          equipment_type: "Motor",
           inspection_date: new Date().toISOString().split("T")[0],
           done_by: "",
           winding_resistance: { ry: 0, yb: 0, rb: 0 },
@@ -408,7 +463,8 @@ export default function WindingResistancePage() {
         setFormData(prev => ({
           ...prev,
           motor_no: parsed.tagNo,
-          equipment_name: parsed.equipmentName || ""
+          equipment_name: parsed.equipmentName || "",
+          equipment_type: parsed.equipmentType || "Motor"
         }))
         return
       }
@@ -433,7 +489,8 @@ export default function WindingResistancePage() {
             setFormData(prev => ({
               ...prev,
               motor_no: foundEquipment.tagNo,
-              equipment_name: foundEquipment.equipmentName
+              equipment_name: foundEquipment.equipmentName,
+              equipment_type: foundEquipment.equipmentType || "Motor"
             }))
           }
         }
@@ -446,7 +503,8 @@ export default function WindingResistancePage() {
         setFormData(prev => ({
           ...prev,
           motor_no: foundEquipment.tagNo,
-          equipment_name: foundEquipment.equipmentName
+          equipment_name: foundEquipment.equipmentName,
+          equipment_type: foundEquipment.equipmentType || "Motor"
         }))
       }
     }
@@ -724,6 +782,27 @@ export default function WindingResistancePage() {
                   </div>
 
                   <div className="space-y-2">
+                    <Label htmlFor="equipment_type" className="text-sm font-medium">
+                      Equipment Type
+                    </Label>
+                    <Select 
+                      value={formData.equipment_type} 
+                      onValueChange={(value) => setFormData((prev) => ({ ...prev, equipment_type: value }))}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select equipment type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {equipmentTypes.map((type) => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
                     <Label htmlFor="inspection_date" className="text-sm font-medium flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
                       Test Date
@@ -797,7 +876,7 @@ export default function WindingResistancePage() {
                   <div className="flex items-center justify-between">
                     <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
                       <Settings className="w-4 h-4" />
-                      IR Values (500V)
+                      {getIRTitle(formData.equipment_type)}
                     </h3>
                     <div className="text-xs text-muted-foreground">Reference: Min ≥1.0 GΩ, Good ≥10 GΩ</div>
                   </div>
@@ -865,7 +944,7 @@ export default function WindingResistancePage() {
                 {/* DAR Values - Responsive Grid */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-base sm:text-lg font-semibold">DAR Values (500V)</h3>
+                    <h3 className="text-base sm:text-lg font-semibold">{getDARTitle(formData.equipment_type)}</h3>
                     <div className="text-xs text-muted-foreground">Reference: Min ≥1.25, Good ≥1.6</div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
