@@ -403,16 +403,24 @@ export default function WindingResistancePage() {
     try {
       // Try to parse as JSON first (equipment QR code)
       const parsed = JSON.parse(data)
+      console.log("Parsed QR data:", parsed)
+      
       if (parsed.type === "equipment" && parsed.tagNo) {
+        console.log("Setting equipment data:", { tagNo: parsed.tagNo, equipmentName: parsed.equipmentName })
         setSelectedMotorNo(parsed.tagNo)
-        setFormData(prev => ({
-          ...prev,
-          motor_no: parsed.tagNo,
-          equipment_name: parsed.equipmentName || ""
-        }))
+        setFormData(prev => {
+          const newData = {
+            ...prev,
+            motor_no: parsed.tagNo,
+            equipment_name: parsed.equipmentName || ""
+          }
+          console.log("Updated form data:", newData)
+          return newData
+        })
         return
       }
-    } catch {
+    } catch (e) {
+      console.log("Not JSON format, trying other formats...", e)
       // Not JSON, try other formats
     }
 
@@ -420,6 +428,7 @@ export default function WindingResistancePage() {
       // Try to parse as URL
       const url = new URL(data)
       const pathParts = url.pathname.split("/")
+      console.log("URL path parts:", pathParts)
       
       if (pathParts.includes("equipment")) {
         const tagIndex = pathParts.indexOf("equipment") + 1
@@ -428,6 +437,8 @@ export default function WindingResistancePage() {
           const foundEquipment = equipment.find(e => 
             e.id.toString() === pathParts[tagIndex] || e.tagNo === pathParts[tagIndex]
           )
+          console.log("Found equipment from URL:", foundEquipment)
+          
           if (foundEquipment) {
             setSelectedMotorNo(foundEquipment.tagNo)
             setFormData(prev => ({
@@ -438,15 +449,27 @@ export default function WindingResistancePage() {
           }
         }
       }
-    } catch {
+    } catch (e) {
+      console.log("Not URL format, trying direct match...", e)
       // Try direct tag number match
       const foundEquipment = equipment.find(e => e.tagNo === data)
+      console.log("Found equipment by direct match:", foundEquipment)
+      
       if (foundEquipment) {
         setSelectedMotorNo(foundEquipment.tagNo)
         setFormData(prev => ({
           ...prev,
           motor_no: foundEquipment.tagNo,
           equipment_name: foundEquipment.equipmentName
+        }))
+      } else {
+        console.log("No equipment found, treating as raw tag number:", data)
+        // If no equipment found, use the scanned data as tag number
+        setSelectedMotorNo(data)
+        setFormData(prev => ({
+          ...prev,
+          motor_no: data,
+          equipment_name: `Equipment - ${data}`
         }))
       }
     }
