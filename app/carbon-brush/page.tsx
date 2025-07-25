@@ -255,6 +255,57 @@ export default function CarbonBrushPage() {
 
   const handleQRScan = (data: string) => {
     console.log("QR Scanned:", data)
+    
+    try {
+      // Try to parse as JSON first (equipment QR code)
+      const parsed = JSON.parse(data)
+      if (parsed.type === "equipment" && parsed.tagNo) {
+        setSelectedTagNo(parsed.tagNo)
+        setFormData(prev => ({
+          ...prev,
+          tagNo: parsed.tagNo,
+          equipmentName: parsed.equipmentName || ""
+        }))
+        return
+      }
+    } catch {
+      // Not JSON, try other formats
+    }
+
+    try {
+      // Try to parse as URL
+      const url = new URL(data)
+      const pathParts = url.pathname.split("/")
+      
+      if (pathParts.includes("equipment")) {
+        const tagIndex = pathParts.indexOf("equipment") + 1
+        if (pathParts[tagIndex]) {
+          // Find equipment by ID or tag
+          const foundEquipment = equipment.find(e => 
+            e.id.toString() === pathParts[tagIndex] || e.tagNo === pathParts[tagIndex]
+          )
+          if (foundEquipment) {
+            setSelectedTagNo(foundEquipment.tagNo)
+            setFormData(prev => ({
+              ...prev,
+              tagNo: foundEquipment.tagNo,
+              equipmentName: foundEquipment.equipmentName
+            }))
+          }
+        }
+      }
+    } catch {
+      // Try direct tag number match
+      const foundEquipment = equipment.find(e => e.tagNo === data)
+      if (foundEquipment) {
+        setSelectedTagNo(foundEquipment.tagNo)
+        setFormData(prev => ({
+          ...prev,
+          tagNo: foundEquipment.tagNo,
+          equipmentName: foundEquipment.equipmentName
+        }))
+      }
+    }
   }
 
   const generateRecordQR = async (recordId: number) => {

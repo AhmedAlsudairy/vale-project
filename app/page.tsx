@@ -1,7 +1,7 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart3, Clipboard, QrCode, Settings, TrendingUp, Wrench, Shield, Clock } from "lucide-react"
+import { BarChart3, Clipboard, QrCode, Settings, TrendingUp, Wrench, Shield, Clock, Package } from "lucide-react"
 
 export default function HomePage() {
   return (
@@ -17,6 +17,23 @@ export default function HomePage() {
 
       {/* Main Feature Cards - Responsive Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
+        <Card className="hover:shadow-lg transition-all duration-300 hover:scale-105">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Package className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+              Equipment Management
+            </CardTitle>
+            <CardDescription className="text-sm sm:text-base">
+              Manage motor equipment with QR codes for easy access and tracking
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/equipment">
+              <Button className="w-full text-sm sm:text-base">Manage Equipment</Button>
+            </Link>
+          </CardContent>
+        </Card>
+
         <Card className="hover:shadow-lg transition-all duration-300 hover:scale-105">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">

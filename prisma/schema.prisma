@@ -17,6 +17,7 @@ model EquipmentMaster {
   equipmentType    String   @map("equipment_type")
   location         String?
   installationDate DateTime? @map("installation_date")
+  qrCode           String?  @map("qr_code")
   createdAt        DateTime @default(now()) @map("created_at")
 
   carbonBrushRecords CarbonBrushRecord[]

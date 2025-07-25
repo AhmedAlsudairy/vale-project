@@ -36,12 +36,27 @@ export async function GET() {
     const { prisma } = await import("@/lib/prisma")
 
     const equipment = await prisma.equipmentMaster.findMany({
+      include: {
+        _count: {
+          select: {
+            carbonBrushRecords: true,
+            windingResistanceRecords: true,
+          },
+        },
+      },
       orderBy: {
         tagNo: "asc",
       },
     })
 
-    return NextResponse.json(equipment)
+    // Transform the data to include counts
+    const equipmentWithCounts = equipment.map(item => ({
+      ...item,
+      carbonBrushCount: item._count.carbonBrushRecords,
+      windingResistanceCount: item._count.windingResistanceRecords,
+    }))
+
+    return NextResponse.json(equipmentWithCounts)
   } catch (error) {
     console.error("Database error, using mock data:", error)
     return NextResponse.json(mockEquipment)
@@ -51,10 +66,12 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { prisma } = await import("@/lib/prisma")
+    const { generateQRFromData } = await import("@/lib/qr-utils")
 
     const body = await request.json()
     const { tag_no, equipment_name, equipment_type, location, installation_date } = body
 
+    // Create equipment first
     const equipment = await prisma.equipmentMaster.create({
       data: {
         tagNo: tag_no,
@@ -65,7 +82,24 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json(equipment)
+    // Generate QR code
+    const qrData = {
+      type: "equipment",
+      id: equipment.id,
+      tagNo: equipment.tagNo,
+      equipmentName: equipment.equipmentName,
+      url: `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/equipment/${equipment.id}`
+    }
+
+    const qrCodeDataURL = await generateQRFromData(qrData)
+
+    // Update equipment with QR code
+    const updatedEquipment = await prisma.equipmentMaster.update({
+      where: { id: equipment.id },
+      data: { qrCode: qrCodeDataURL },
+    })
+
+    return NextResponse.json(updatedEquipment)
   } catch (error) {
     console.error("Database error:", error)
 

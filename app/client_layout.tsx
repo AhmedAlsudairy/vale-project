@@ -6,7 +6,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Home, BarChart3, Clipboard, Settings, Menu, X, Zap } from "lucide-react"
+import { Home, BarChart3, Clipboard, Settings, Menu, X, Zap, Package } from "lucide-react"
 import { useState } from "react"
 import { ErrorBoundary } from "@/components/error-boundary"
 
@@ -37,6 +37,12 @@ function Navigation() {
               <Button variant="ghost" size="sm" className="text-sm">
                 <BarChart3 className="h-4 w-4 mr-2" />
                 Dashboard
+              </Button>
+            </Link>
+            <Link href="/equipment">
+              <Button variant="ghost" size="sm" className="text-sm">
+                <Package className="h-4 w-4 mr-2" />
+                Equipment
               </Button>
             </Link>
             <Link href="/carbon-brush">
@@ -73,6 +79,12 @@ function Navigation() {
                 <Button variant="ghost" className="w-full justify-start text-sm">
                   <BarChart3 className="h-4 w-4 mr-2" />
                   Dashboard
+                </Button>
+              </Link>
+              <Link href="/equipment" onClick={() => setIsOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start text-sm">
+                  <Package className="h-4 w-4 mr-2" />
+                  Equipment
                 </Button>
               </Link>
               <Link href="/carbon-brush" onClick={() => setIsOpen(false)}>

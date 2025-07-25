@@ -399,6 +399,57 @@ export default function WindingResistancePage() {
 
   const handleQRScan = (data: string) => {
     console.log("QR Scanned:", data)
+    
+    try {
+      // Try to parse as JSON first (equipment QR code)
+      const parsed = JSON.parse(data)
+      if (parsed.type === "equipment" && parsed.tagNo) {
+        setSelectedMotorNo(parsed.tagNo)
+        setFormData(prev => ({
+          ...prev,
+          motor_no: parsed.tagNo,
+          equipment_name: parsed.equipmentName || ""
+        }))
+        return
+      }
+    } catch {
+      // Not JSON, try other formats
+    }
+
+    try {
+      // Try to parse as URL
+      const url = new URL(data)
+      const pathParts = url.pathname.split("/")
+      
+      if (pathParts.includes("equipment")) {
+        const tagIndex = pathParts.indexOf("equipment") + 1
+        if (pathParts[tagIndex]) {
+          // Find equipment by ID or tag
+          const foundEquipment = equipment.find(e => 
+            e.id.toString() === pathParts[tagIndex] || e.tagNo === pathParts[tagIndex]
+          )
+          if (foundEquipment) {
+            setSelectedMotorNo(foundEquipment.tagNo)
+            setFormData(prev => ({
+              ...prev,
+              motor_no: foundEquipment.tagNo,
+              equipment_name: foundEquipment.equipmentName
+            }))
+          }
+        }
+      }
+    } catch {
+      // Try direct tag number match
+      const foundEquipment = equipment.find(e => e.tagNo === data)
+      if (foundEquipment) {
+        setSelectedMotorNo(foundEquipment.tagNo)
+        setFormData(prev => ({
+          ...prev,
+          motor_no: foundEquipment.tagNo,
+          equipment_name: foundEquipment.equipmentName
+        }))
+      }
+    }
   }
 
   const generateRecordQR = async (recordId: number) => {
