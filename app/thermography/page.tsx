@@ -100,6 +100,8 @@ export default function ThermographyPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedEsp, setSelectedEsp] = useState('all')
   const [selectedMonth, setSelectedMonth] = useState('all')
+  const [selectedStatus, setSelectedStatus] = useState('all')
+  const [selectedTempStatus, setSelectedTempStatus] = useState('all')
   const [expandedSessions, setExpandedSessions] = useState<Set<number>>(new Set())
 
   // Form state
@@ -399,12 +401,15 @@ export default function ThermographyPage() {
     }).length
   }
 
-  const downloadExcel = async () => {
+  const downloadExcel = async (sessionFilter?: EspSession) => {
     try {
       const XLSX = await import('xlsx')
       
+      // Filter data based on sessionFilter parameter
+      const sessionsToExport = sessionFilter ? [sessionFilter] : filteredSessions
+      
       // Prepare organized data with proper grouping
-      const exportData = filteredSessions.flatMap(session => 
+      const exportData = sessionsToExport.flatMap(session => 
         session.transformerRecords.map((record, index) => ({
           // Session Information
           'ESP Code': session.espCode,
@@ -483,6 +488,10 @@ export default function ThermographyPage() {
       // Create worksheet with organized data
       const worksheet = XLSX.utils.json_to_sheet(exportData)
       
+      // Add auto filters to the worksheet
+      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1')
+      worksheet['!autofilter'] = { ref: worksheet['!ref'] || 'A1' }
+      
       // Set column widths for better readability
       const columnWidths = [
         { wch: 12 }, // ESP Code
@@ -515,17 +524,99 @@ export default function ThermographyPage() {
       ]
       worksheet['!cols'] = columnWidths
 
+      // Add colors and formatting
+      if (!worksheet['!rows']) worksheet['!rows'] = []
+      
+      // Style header row
+      for (let col = 0; col < 27; col++) {
+        const cellRef = XLSX.utils.encode_cell({ r: 0, c: col })
+        if (!worksheet[cellRef]) continue
+        
+        worksheet[cellRef].s = {
+          fill: { fgColor: { rgb: "4472C4" } },
+          font: { color: { rgb: "FFFFFF" }, bold: true, sz: 11 },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: {
+            top: { style: "thin", color: { rgb: "000000" } },
+            bottom: { style: "thin", color: { rgb: "000000" } },
+            left: { style: "thin", color: { rgb: "000000" } },
+            right: { style: "thin", color: { rgb: "000000" } }
+          }
+        }
+      }
+
+      // Color-code temperature status cells
+      for (let row = 1; row <= exportData.length; row++) {
+        // Temperature Status column (column 26, index from 0)
+        const tempStatusCell = XLSX.utils.encode_cell({ r: row, c: 26 })
+        const tempStatus = exportData[row - 1]['Temperature Status']
+        
+        if (worksheet[tempStatusCell]) {
+          let fillColor = "FFFFFF" // Default white
+          if (tempStatus === 'Critical') fillColor = "FFE6E6" // Light red
+          else if (tempStatus === 'Warning') fillColor = "FFF2CC" // Light yellow
+          else if (tempStatus === 'Normal') fillColor = "E6F7E6" // Light green
+          
+          worksheet[tempStatusCell].s = {
+            fill: { fgColor: { rgb: fillColor } },
+            font: { sz: 10 },
+            alignment: { horizontal: "center" },
+            border: {
+              top: { style: "thin", color: { rgb: "CCCCCC" } },
+              bottom: { style: "thin", color: { rgb: "CCCCCC" } },
+              left: { style: "thin", color: { rgb: "CCCCCC" } },
+              right: { style: "thin", color: { rgb: "CCCCCC" } }
+            }
+          }
+        }
+
+        // Session Status column (column 22)
+        const sessionStatusCell = XLSX.utils.encode_cell({ r: row, c: 22 })
+        const sessionStatus = exportData[row - 1]['Session Status']
+        
+        if (worksheet[sessionStatusCell]) {
+          const fillColor = sessionStatus === 'Completed' ? "E6F7E6" : "FFF2CC"
+          worksheet[sessionStatusCell].s = {
+            fill: { fgColor: { rgb: fillColor } },
+            font: { sz: 10 },
+            alignment: { horizontal: "center" },
+            border: {
+              top: { style: "thin", color: { rgb: "CCCCCC" } },
+              bottom: { style: "thin", color: { rgb: "CCCCCC" } },
+              left: { style: "thin", color: { rgb: "CCCCCC" } },
+              right: { style: "thin", color: { rgb: "CCCCCC" } }
+            }
+          }
+        }
+
+        // Add borders to all data cells
+        for (let col = 0; col < 27; col++) {
+          const cellRef = XLSX.utils.encode_cell({ r: row, c: col })
+          if (worksheet[cellRef] && !worksheet[cellRef].s) {
+            worksheet[cellRef].s = {
+              border: {
+                top: { style: "thin", color: { rgb: "CCCCCC" } },
+                bottom: { style: "thin", color: { rgb: "CCCCCC" } },
+                left: { style: "thin", color: { rgb: "CCCCCC" } },
+                right: { style: "thin", color: { rgb: "CCCCCC" } }
+              },
+              font: { sz: 10 }
+            }
+          }
+        }
+      }
+
       // Create workbook and add worksheet
       const workbook = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(workbook, worksheet, 'ESP Thermography Data')
       
-      // Add summary sheet
+      // Add summary sheet with enhanced styling
       const summaryData = [
-        { 'Summary': 'Total ESP Sessions', 'Value': filteredSessions.length },
-        { 'Summary': 'Completed Sessions', 'Value': filteredSessions.filter(s => s.isCompleted).length },
-        { 'Summary': 'In Progress Sessions', 'Value': filteredSessions.filter(s => !s.isCompleted).length },
-        { 'Summary': 'Total Transformer Records', 'Value': filteredSessions.reduce((sum, s) => sum + s.transformerRecords.length, 0) },
-        { 'Summary': 'Critical Temperature Records', 'Value': filteredSessions.reduce((sum, s) => 
+        { 'Summary': 'Total ESP Sessions', 'Value': sessionsToExport.length },
+        { 'Summary': 'Completed Sessions', 'Value': sessionsToExport.filter(s => s.isCompleted).length },
+        { 'Summary': 'In Progress Sessions', 'Value': sessionsToExport.filter(s => !s.isCompleted).length },
+        { 'Summary': 'Total Transformer Records', 'Value': sessionsToExport.reduce((sum, s) => sum + s.transformerRecords.length, 0) },
+        { 'Summary': 'Critical Temperature Records', 'Value': sessionsToExport.reduce((sum, s) => 
           sum + s.transformerRecords.filter(r => {
             const maxTemp = Math.max(
               r.mccbIcRPhase || 0, r.mccbIcBPhase || 0, r.mccbCOg1 || 0, 
@@ -534,7 +625,7 @@ export default function ThermographyPage() {
             )
             return maxTemp > 80
           }).length, 0) },
-        { 'Summary': 'Warning Temperature Records', 'Value': filteredSessions.reduce((sum, s) => 
+        { 'Summary': 'Warning Temperature Records', 'Value': sessionsToExport.reduce((sum, s) => 
           sum + s.transformerRecords.filter(r => {
             const maxTemp = Math.max(
               r.mccbIcRPhase || 0, r.mccbIcBPhase || 0, r.mccbCOg1 || 0, 
@@ -544,15 +635,51 @@ export default function ThermographyPage() {
             return maxTemp > 60 && maxTemp <= 80
           }).length, 0) },
         { 'Summary': 'Export Date', 'Value': format(new Date(), 'dd/MM/yyyy HH:mm') },
+        { 'Summary': 'Export Type', 'Value': sessionFilter ? `Single Session (${sessionFilter.espCode})` : 'All Filtered Sessions' },
         { 'Summary': 'Export Filters Applied', 'Value': hasActiveFilters ? 'Yes' : 'No' }
       ]
       
       const summaryWorksheet = XLSX.utils.json_to_sheet(summaryData)
-      summaryWorksheet['!cols'] = [{ wch: 25 }, { wch: 20 }]
+      summaryWorksheet['!cols'] = [{ wch: 25 }, { wch: 25 }]
+      
+      // Style summary sheet headers
+      for (let row = 0; row < summaryData.length; row++) {
+        const summaryCell = XLSX.utils.encode_cell({ r: row, c: 0 })
+        const valueCell = XLSX.utils.encode_cell({ r: row, c: 1 })
+        
+        if (summaryWorksheet[summaryCell]) {
+          summaryWorksheet[summaryCell].s = {
+            fill: { fgColor: { rgb: "E7E6E6" } },
+            font: { bold: true, sz: 11 },
+            border: {
+              top: { style: "thin", color: { rgb: "000000" } },
+              bottom: { style: "thin", color: { rgb: "000000" } },
+              left: { style: "thin", color: { rgb: "000000" } },
+              right: { style: "thin", color: { rgb: "000000" } }
+            }
+          }
+        }
+        
+        if (summaryWorksheet[valueCell]) {
+          summaryWorksheet[valueCell].s = {
+            font: { sz: 11 },
+            border: {
+              top: { style: "thin", color: { rgb: "000000" } },
+              bottom: { style: "thin", color: { rgb: "000000" } },
+              left: { style: "thin", color: { rgb: "000000" } },
+              right: { style: "thin", color: { rgb: "000000" } }
+            }
+          }
+        }
+      }
+      
       XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary')
       
       // Generate filename with professional naming
-      const fileName = `ESP_Thermography_Report_${format(new Date(), 'dd-MM-yyyy_HHmm')}.xlsx`
+      const fileName = sessionFilter 
+        ? `ESP_${sessionFilter.espCode}_Thermography_${format(new Date(sessionFilter.inspectionDate), 'dd-MM-yyyy')}.xlsx`
+        : `ESP_Thermography_Report_${format(new Date(), 'dd-MM-yyyy_HHmm')}.xlsx`
+      
       XLSX.writeFile(workbook, fileName)
       
       toast({
@@ -753,7 +880,7 @@ export default function ThermographyPage() {
           <div className="w-full sm:w-auto">
             <QRScanner onScan={handleQRScan} />
           </div>
-          <Button onClick={downloadExcel} variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm">
+          <Button onClick={() => downloadExcel()} variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm">
             <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
             <span className="hidden xs:inline">Export </span>Excel
           </Button>
@@ -1060,8 +1187,8 @@ export default function ThermographyPage() {
           <CardTitle className="text-sm sm:text-base">Filters & Search</CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div className="sm:col-span-2 lg:col-span-1">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 sm:gap-4">
+            <div className="sm:col-span-2 lg:col-span-1 xl:col-span-2">
               <Label htmlFor="search" className="text-xs sm:text-sm font-medium">Search</Label>
               <div className="relative">
                 <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
@@ -1104,19 +1231,53 @@ export default function ThermographyPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex items-end">
-              <Button 
-                variant="outline" 
-                onClick={() => {
-                  setSearchTerm('')
-                  setSelectedEsp('all')
-                  setSelectedMonth('all')
-                }}
-                className="w-full text-xs sm:text-sm h-9"
-              >
-                Clear Filters
-              </Button>
+            <div>
+              <Label htmlFor="status" className="text-xs sm:text-sm font-medium">Status</Label>
+              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+                <SelectTrigger className="text-xs sm:text-sm">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs sm:text-sm">All Status</SelectItem>
+                  <SelectItem value="completed" className="text-xs sm:text-sm">Completed</SelectItem>
+                  <SelectItem value="in-progress" className="text-xs sm:text-sm">In Progress</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
+            <div>
+              <Label htmlFor="tempStatus" className="text-xs sm:text-sm font-medium">Temperature</Label>
+              <Select value={selectedTempStatus} onValueChange={setSelectedTempStatus}>
+                <SelectTrigger className="text-xs sm:text-sm">
+                  <SelectValue placeholder="All Temps" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all" className="text-xs sm:text-sm">All Temperatures</SelectItem>
+                  <SelectItem value="critical" className="text-xs sm:text-sm">Critical (&gt;80°C)</SelectItem>
+                  <SelectItem value="warning" className="text-xs sm:text-sm">Warning (60-80°C)</SelectItem>
+                  <SelectItem value="normal" className="text-xs sm:text-sm">Normal (≤60°C)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex items-center justify-between mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setSearchTerm('')
+                setSelectedEsp('all')
+                setSelectedMonth('all')
+                setSelectedStatus('all')
+                setSelectedTempStatus('all')
+              }}
+              className="text-xs sm:text-sm h-9"
+            >
+              Clear All Filters
+            </Button>
+            {hasActiveFilters && (
+              <div className="text-xs text-muted-foreground">
+                {filteredSessions.length} of {sessions.length} sessions shown
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -1189,6 +1350,18 @@ export default function ThermographyPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2 ml-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            downloadExcel(session)
+                          }}
+                          className="text-xs px-2 py-1 h-7"
+                          title="Download Excel for this session"
+                        >
+                          <Download className="h-3 w-3" />
+                        </Button>
                         {!session.isCompleted && (
                           <Button
                             variant="outline"
