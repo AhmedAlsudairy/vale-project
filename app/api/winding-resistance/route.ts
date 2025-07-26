@@ -73,10 +73,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  let body: any
+  
   try {
     const { prisma } = await import("@/lib/prisma")
 
-    let body
     try {
       body = await request.json()
     } catch (error) {
@@ -111,6 +112,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "winding_resistance and ir_values must be objects" }, { status: 400 })
     }
 
+    // Check if equipment exists in equipment master, if not create it
+    let equipment = await prisma.equipmentMaster.findUnique({
+      where: { tagNo: motor_no }
+    })
+
+    if (!equipment) {
+      // Create equipment in equipment master if it doesn't exist
+      equipment = await prisma.equipmentMaster.create({
+        data: {
+          tagNo: motor_no,
+          equipmentName: equipment_name || `Motor ${motor_no}`,
+          equipmentType: 'Motor',
+          location: 'Main Plant'
+          // QR code will be generated when user clicks "Generate" button
+        }
+      })
+      console.log(`Created new motor equipment: ${motor_no}`)
+    }
+
     const record = await prisma.windingResistanceRecord.create({
       data: {
         motorNo: motor_no,
@@ -130,8 +150,7 @@ export async function POST(request: NextRequest) {
     console.error("Database error:", error)
 
     // Return a mock success response when database is not available
-    try {
-      const body = await request.json()
+    if (body) {
       console.log("Using mock response for:", body) // Debug log
 
       const mockRecord = {
@@ -149,9 +168,8 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json(mockRecord, { status: 201 })
-    } catch (jsonError) {
-      console.error("JSON parsing error in fallback:", jsonError)
-      return NextResponse.json({ error: "Failed to save record and invalid request format" }, { status: 500 })
     }
+    
+    return NextResponse.json({ error: "Failed to save record" }, { status: 500 })
   }
 }

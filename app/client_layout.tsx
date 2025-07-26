@@ -6,6 +6,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { Toaster } from "@/components/ui/toaster"
 import { Home, BarChart3, Clipboard, Settings, Menu, X, Zap, Package } from "lucide-react"
 import { useState } from "react"
 import { ErrorBoundary } from "@/components/error-boundary"
@@ -123,6 +124,7 @@ export default function ClientRootLayout({
                 <ErrorBoundary>{children}</ErrorBoundary>
               </main>
             </div>
+            <Toaster />
           </ThemeProvider>
         </ErrorBoundary>
       </body>

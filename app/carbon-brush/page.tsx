@@ -741,10 +741,11 @@ function CarbonBrushPage() {
                           }
                           placeholder="mm"
                           className={cn(
-                            "w-full text-sm",
-                            value > 0 && value < 25 && "border-red-300 bg-red-50",
-                            value >= 25 && value < 32 && "border-yellow-300 bg-yellow-50",
-                            value >= 32 && "border-green-300 bg-green-50",
+                            "w-full text-sm font-medium",
+                            value > 0 && value < 25 && "border-red-400 bg-red-50 text-red-900 placeholder:text-red-400",
+                            value >= 25 && value < 32 && "border-yellow-400 bg-yellow-50 text-yellow-900 placeholder:text-yellow-600",
+                            value >= 32 && "border-green-400 bg-green-50 text-green-900 placeholder:text-green-600",
+                            value === 0 && "border-gray-300 bg-white text-gray-900 placeholder:text-gray-400"
                           )}
                         />
                         {value > 0 && (
@@ -778,7 +779,12 @@ function CarbonBrushPage() {
                         }))
                       }
                       placeholder="mm (typical: 12-15mm)"
-                      className="w-full"
+                      className={cn(
+                        "w-full font-medium",
+                        formData.slip_ring_thickness > 0 && formData.slip_ring_thickness < 12 && "border-red-400 bg-red-50 text-red-900",
+                        formData.slip_ring_thickness >= 12 && formData.slip_ring_thickness <= 15 && "border-green-400 bg-green-50 text-green-900",
+                        formData.slip_ring_thickness > 15 && "border-yellow-400 bg-yellow-50 text-yellow-900"
+                      )}
                     />
                     <p className="text-xs text-muted-foreground">Typical range: 12-15mm</p>
                   </div>
@@ -798,9 +804,9 @@ function CarbonBrushPage() {
                       }
                       placeholder="GΩ (minimum: ≥2.0)"
                       className={cn(
-                        "w-full",
-                        formData.slip_ring_ir > 0 && formData.slip_ring_ir < 2.0 && "border-red-300 bg-red-50",
-                        formData.slip_ring_ir >= 2.0 && "border-green-300 bg-green-50",
+                        "w-full font-medium",
+                        formData.slip_ring_ir > 0 && formData.slip_ring_ir < 2.0 && "border-red-400 bg-red-50 text-red-900",
+                        formData.slip_ring_ir >= 2.0 && "border-green-400 bg-green-50 text-green-900",
                       )}
                     />
                     <p className="text-xs text-muted-foreground">Minimum acceptable: ≥2.0 GΩ</p>

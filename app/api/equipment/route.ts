@@ -29,6 +29,34 @@ const mockEquipment = [
     installationDate: null,
     createdAt: "2024-01-01T00:00:00Z",
   },
+  // ESP Equipment from thermography sessions
+  {
+    id: 4,
+    tagNo: "ESP-01",
+    equipmentName: "ESP MCC Panel 1",
+    equipmentType: "ESP - MCC Panel",
+    location: "Main Plant",
+    installationDate: null,
+    createdAt: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: 5,
+    tagNo: "ESP-02",
+    equipmentName: "ESP MCC Panel 2", 
+    equipmentType: "ESP - MCC Panel",
+    location: "Main Plant",
+    installationDate: null,
+    createdAt: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: 6,
+    tagNo: "ESP-03",
+    equipmentName: "ESP MCC Panel 3",
+    equipmentType: "ESP - MCC Panel", 
+    location: "Secondary Plant",
+    installationDate: null,
+    createdAt: "2024-01-01T00:00:00Z",
+  },
 ]
 
 export async function GET() {
@@ -41,6 +69,7 @@ export async function GET() {
           select: {
             carbonBrushRecords: true,
             windingResistanceRecords: true,
+            thermographyRecords: true,
           },
         },
       },
@@ -49,17 +78,38 @@ export async function GET() {
       },
     })
 
-    // Transform the data to include counts
-    const equipmentWithCounts = equipment.map(item => ({
-      ...item,
-      carbonBrushCount: item._count.carbonBrushRecords,
-      windingResistanceCount: item._count.windingResistanceRecords,
+    // Transform the equipment data to include counts
+    const equipmentWithCounts = await Promise.all(equipment.map(async (item) => {
+      // Also count ESP thermography sessions for this equipment
+      let espSessionsCount = 0
+      try {
+        espSessionsCount = await prisma.espThermographySession.count({
+          where: { espCode: item.tagNo }
+        })
+      } catch (error) {
+        // ESP sessions table might not exist
+        console.log("ESP sessions not available for counting")
+      }
+
+      return {
+        ...item,
+        carbonBrushCount: item._count.carbonBrushRecords,
+        windingResistanceCount: item._count.windingResistanceRecords,
+        thermographyRecordsCount: item._count.thermographyRecords + espSessionsCount,
+      }
     }))
 
     return NextResponse.json(equipmentWithCounts)
   } catch (error) {
     console.error("Database error, using mock data:", error)
-    return NextResponse.json(mockEquipment)
+    // Add counts to mock equipment data
+    const mockEquipmentWithCounts = mockEquipment.map(item => ({
+      ...item,
+      carbonBrushCount: 0,
+      windingResistanceCount: 0,
+      thermographyRecordsCount: item.equipmentType.includes('ESP') ? 1 : 0,
+    }))
+    return NextResponse.json(mockEquipmentWithCounts)
   }
 }
 

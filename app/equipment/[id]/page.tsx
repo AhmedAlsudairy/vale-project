@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { QrCode, Plus, ArrowLeft, Edit, Wrench, Zap, Calendar, MapPin, Download } from "lucide-react"
+import { QrCode, Plus, ArrowLeft, Edit, Wrench, Zap, Calendar, MapPin, Download, Thermometer } from "lucide-react"
 import Link from "next/link"
 import { EquipmentForm } from "@/components/equipment-form"
 
@@ -40,6 +40,18 @@ interface WindingResistanceRecord {
   remarks?: string
 }
 
+interface ThermographyRecord {
+  id: number
+  espCode: string
+  inspectionDate: string
+  month: number
+  doneBy?: string
+  step: number
+  isCompleted: boolean
+  remarks?: string
+  transformerRecords?: any[]
+}
+
 export default function EquipmentDetailPage() {
   const params = useParams()
   const equipmentId = params.id as string
@@ -47,6 +59,7 @@ export default function EquipmentDetailPage() {
   const [equipment, setEquipment] = useState<Equipment | null>(null)
   const [carbonBrushRecords, setCarbonBrushRecords] = useState<CarbonBrushRecord[]>([])
   const [windingRecords, setWindingRecords] = useState<WindingResistanceRecord[]>([])
+  const [thermographyRecords, setThermographyRecords] = useState<ThermographyRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [showEditForm, setShowEditForm] = useState(false)
 
@@ -76,6 +89,13 @@ export default function EquipmentDetailPage() {
         if (windingResponse.ok) {
           const windingData = await windingResponse.json()
           setWindingRecords(windingData)
+        }
+
+        // Fetch related thermography records (ESP sessions)
+        const thermographyResponse = await fetch(`/api/esp-sessions?tagNo=${equipmentData.tagNo}`)
+        if (thermographyResponse.ok) {
+          const thermographyData = await thermographyResponse.json()
+          setThermographyRecords(thermographyData)
         }
       }
     } catch (error) {
@@ -207,17 +227,82 @@ export default function EquipmentDetailPage() {
             </CardContent>
           </Card>
 
-          <Tabs defaultValue="carbon-brush" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="carbon-brush" className="flex items-center gap-2">
-                <Wrench className="w-4 h-4" />
-                Carbon Brush ({carbonBrushRecords.length})
-              </TabsTrigger>
-              <TabsTrigger value="winding" className="flex items-center gap-2">
-                <Zap className="w-4 h-4" />
-                Winding Resistance ({windingRecords.length})
-              </TabsTrigger>
-            </TabsList>
+          {equipment.equipmentType.includes('ESP') ? (
+            // ESP Equipment - Only show thermography
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center gap-2">
+                    <Thermometer className="w-5 h-5" />
+                    Thermography Records ({thermographyRecords.length})
+                  </span>
+                  <Link href={`/thermography?equipment=${equipment.tagNo}`}>
+                    <Button>
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Record
+                    </Button>
+                  </Link>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {thermographyRecords.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No thermography records found.</p>
+                    <Link href={`/thermography?equipment=${equipment.tagNo}`}>
+                      <Button className="mt-4">Add First Record</Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {thermographyRecords.map((record) => (
+                      <Card key={record.id}>
+                        <CardContent className="pt-6">
+                          <div className="flex justify-between items-start">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <Badge variant={record.isCompleted ? "default" : "secondary"}>
+                                  {record.isCompleted ? "Complete" : "In Progress"}
+                                </Badge>
+                                <span className="text-sm text-muted-foreground">
+                                  {new Date(record.inspectionDate).toLocaleDateString()}
+                                </span>
+                              </div>
+                              {record.transformerRecords && (
+                                <p className="text-sm">
+                                  Step: {record.step}/4 | Transformers: {record.transformerRecords.length}
+                                </p>
+                              )}
+                              {record.doneBy && (
+                                <p className="text-sm">By: {record.doneBy}</p>
+                              )}
+                              {record.remarks && (
+                                <p className="text-sm text-muted-foreground">{record.remarks}</p>
+                              )}
+                            </div>
+                            <Link href={`/thermography/${record.id}`}>
+                              <Button variant="outline" size="sm">View Details</Button>
+                            </Link>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            // Non-ESP Equipment - Show tabs for carbon brush and winding resistance
+            <Tabs defaultValue="carbon-brush" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="carbon-brush" className="flex items-center gap-2">
+                  <Wrench className="w-4 h-4" />
+                  Carbon Brush ({carbonBrushRecords.length})
+                </TabsTrigger>
+                <TabsTrigger value="winding" className="flex items-center gap-2">
+                  <Zap className="w-4 h-4" />
+                  Winding Resistance ({windingRecords.length})
+                </TabsTrigger>
+              </TabsList>
 
             <TabsContent value="carbon-brush" className="space-y-4">
               <div className="flex justify-between items-center">
@@ -325,7 +410,8 @@ export default function EquipmentDetailPage() {
                 </div>
               )}
             </TabsContent>
-          </Tabs>
+            </Tabs>
+          )}
         </div>
 
         <div className="space-y-6">

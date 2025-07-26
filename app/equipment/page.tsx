@@ -302,14 +302,22 @@ export default function EquipmentPage() {
               </div>
 
               <div className="flex justify-between text-sm">
-                <div className="flex items-center gap-1">
-                  <Wrench className="w-4 h-4" />
-                  <span>{item.carbonBrushCount || 0} Brush Records</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Zap className="w-4 h-4" />
-                  <span>{item.windingResistanceCount || 0} Winding Records</span>
-                </div>
+                {item.equipmentType.includes('ESP') ? (
+                  <div className="flex items-center gap-1">
+                    <span>ESP Thermography Equipment</span>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1">
+                      <Wrench className="w-4 h-4" />
+                      <span>{item.carbonBrushCount || 0} Brush Records</span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Zap className="w-4 h-4" />
+                      <span>{item.windingResistanceCount || 0} Winding Records</span>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="flex gap-2">
@@ -318,16 +326,26 @@ export default function EquipmentPage() {
                     View Details
                   </Button>
                 </Link>
-                <Link href={`/carbon-brush?equipment=${item.tagNo}`} className="flex-1">
-                  <Button variant="outline" className="w-full">
-                    Add Brush
-                  </Button>
-                </Link>
-                <Link href={`/winding-resistance?equipment=${item.tagNo}`} className="flex-1">
-                  <Button variant="outline" className="w-full">
-                    Add Winding
-                  </Button>
-                </Link>
+                {item.equipmentType.includes('ESP') ? (
+                  <Link href={`/thermography?equipment=${item.tagNo}`} className="flex-1">
+                    <Button variant="outline" className="w-full">
+                      Add Thermography
+                    </Button>
+                  </Link>
+                ) : (
+                  <>
+                    <Link href={`/carbon-brush?equipment=${item.tagNo}`} className="flex-1">
+                      <Button variant="outline" className="w-full">
+                        Add Brush
+                      </Button>
+                    </Link>
+                    <Link href={`/winding-resistance?equipment=${item.tagNo}`} className="flex-1">
+                      <Button variant="outline" className="w-full">
+                        Add Winding
+                      </Button>
+                    </Link>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>

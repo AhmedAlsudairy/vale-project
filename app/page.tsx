@@ -4,7 +4,7 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { BarChart3, Clipboard, QrCode, Settings, TrendingUp, Wrench, Shield, Clock, Package } from "lucide-react"
+import { BarChart3, Clipboard, QrCode, Settings, TrendingUp, Wrench, Shield, Clock, Package, Thermometer } from "lucide-react"
 
 interface Stats {
   systemUptime: string
@@ -62,7 +62,7 @@ export default function HomePage() {
       </div>
 
       {/* Main Feature Cards - Responsive Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6 mb-8 sm:mb-12">
         <Card className="hover:shadow-lg transition-all duration-300 hover:scale-105">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
@@ -114,7 +114,24 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        <Card className="hover:shadow-lg transition-all duration-300 hover:scale-105 md:col-span-2 lg:col-span-1">
+        <Card className="hover:shadow-lg transition-all duration-300 hover:scale-105">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Thermometer className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+              ESP MCC Thermography
+            </CardTitle>
+            <CardDescription className="text-sm sm:text-base">
+              Monitor thermal conditions and temperature readings for ESP transformers
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/thermography">
+              <Button className="w-full text-sm sm:text-base">Monitor Temperature</Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-all duration-300 hover:scale-105">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <BarChart3 className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
@@ -177,6 +194,15 @@ export default function HomePage() {
                   <span className="text-sm sm:text-base font-medium">Historical Tracking</span>
                   <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                     Complete maintenance history with reference measurements and trends
+                  </p>
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <Thermometer className="h-4 w-4 sm:h-5 sm:w-5 text-primary mt-0.5 flex-shrink-0" />
+                <div>
+                  <span className="text-sm sm:text-base font-medium">Thermal Monitoring</span>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                    ESP MCC thermography with temperature alerts and thermal condition tracking
                   </p>
                 </div>
               </li>

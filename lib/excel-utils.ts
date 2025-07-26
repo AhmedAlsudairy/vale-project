@@ -954,3 +954,343 @@ export const exportSingleCarbonBrushToExcel = (record: any) => {
   const filename = `VALE-Carbon-Brush-Report-${safeGet(record, 'tagNo', 'unknown')}-${new Date().toISOString().split('T')[0]}.xlsx`
   XLSX.writeFile(workbook, filename)
 }
+
+// Thermography export function - Enhanced
+export const exportThermographyToExcel = (records: any[], filtered = false) => {
+  const headers = [
+    'Transformer No',
+    'Equipment Type',
+    'Month',
+    'Inspection Date',
+    'MCCB R-Phase (°C)',
+    'MCCB B-Phase (°C)',
+    'MCCB C O/G-1 (°C)',
+    'MCCB C O/G-2 (°C)',
+    'MCCB Body Temp (°C)',
+    'kV/mA',
+    'SP/Min',
+    'SCR Cooling Fins (°C)',
+    'SCR Cooling Fan (°C)',
+    'Panel Exhaust Fan (°C)',
+    'MCC Forced Cooling Fan (°C)',
+    'RDI68',
+    'RDI69',
+    'RDI70',
+    'Max Temp (°C)',
+    'Status',
+    'Inspector',
+    'Remarks'
+  ]
+
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ]
+
+  const data = records.map(record => {
+    const measurements = record.measurements || {}
+    
+    // Calculate max temperature and status
+    const temperatures = [
+      measurements.mccbRPhase || 0,
+      measurements.mccbBPhase || 0,
+      measurements.mccbCOG1 || 0,
+      measurements.mccbCOG2 || 0,
+      measurements.mccbBodyTemp || 0,
+      measurements.scrCoolingFinsTemp || 0
+    ]
+    const maxTemp = Math.max(...temperatures)
+    
+    let status = 'Normal'
+    if (maxTemp > 80) status = 'Critical (>80°C)'
+    else if (maxTemp > 60) status = 'Warning (>60°C)'
+    else if (maxTemp > 40) status = 'Caution (>40°C)'
+
+    return [
+      safeGet(record, 'transformerNo', ''),
+      safeGet(record, 'equipmentType', 'ESP'),
+      months[safeGet(record, 'month', 1) - 1] || 'Unknown',
+      formatExcelDate(safeGet(record, 'inspectionDate', '')),
+      measurements.mccbRPhase || 0,
+      measurements.mccbBPhase || 0,
+      measurements.mccbCOG1 || 0,
+      measurements.mccbCOG2 || 0,
+      measurements.mccbBodyTemp || 0,
+      measurements.kvMa || 0,
+      measurements.spMin || 0,
+      measurements.scrCoolingFinsTemp || 0,
+      measurements.scrCoolingFan || 0,
+      measurements.panelExhaustFan || 0,
+      measurements.mccForcedCoolingFanTemp || 0,
+      measurements.rdi68 || 0,
+      measurements.rdi69 || 0,
+      measurements.rdi70 || 0,
+      maxTemp,
+      status,
+      safeGet(record, 'doneBy', ''),
+      safeGet(record, 'remarks', '')
+    ]
+  })
+
+  const columnWidths = [
+    15, 15, 12, 15, 15, 15, 15, 15, 15, 10, 10, 
+    18, 15, 18, 20, 10, 10, 10, 12, 18, 15, 30
+  ]
+
+  const filename = `thermography-${filtered ? 'filtered-' : ''}${new Date().toISOString().split('T')[0]}.xlsx`
+
+  exportToExcel({
+    filename,
+    sheetName: 'ESP Thermography Records',
+    data,
+    headers,
+    columnWidths,
+    headerStyle: true,
+    cellStyles: true
+  })
+}
+
+// Single record detailed export for thermography - Enhanced with Professional Formatting
+export const exportSingleThermographyToExcel = (record: any) => {
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ]
+
+  const measurements = record.measurements || {}
+  
+  // Calculate temperatures and status
+  const temperatures = [
+    measurements.mccbRPhase || 0,
+    measurements.mccbBPhase || 0,
+    measurements.mccbCOG1 || 0,
+    measurements.mccbCOG2 || 0,
+    measurements.mccbBodyTemp || 0,
+    measurements.scrCoolingFinsTemp || 0
+  ]
+  const maxTemp = Math.max(...temperatures)
+  
+  let status = 'NORMAL'
+  let statusColor = '16A085' // Green
+  let statusBg = 'E8F6F3'
+  
+  if (maxTemp > 80) {
+    status = 'CRITICAL (>80°C)'
+    statusColor = 'E74C3C' // Red
+    statusBg = 'FADBD8'
+  } else if (maxTemp > 60) {
+    status = 'WARNING (>60°C)'
+    statusColor = 'E74C3C' // Red
+    statusBg = 'FADBD8'
+  } else if (maxTemp > 40) {
+    status = 'CAUTION (>40°C)'
+    statusColor = 'F39C12' // Orange
+    statusBg = 'FEF9E7'
+  }
+
+  const data = [
+    ['ESP MCC THERMOGRAPHY REPORT', ''],
+    ['Vale Equipment Management System - Professional Analysis Report', ''],
+    ['═══════════════════════════════════════════════════════════════', ''],
+    ['', ''],
+    ['🏭 EQUIPMENT INFORMATION', ''],
+    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
+    ['Transformer No', safeGet(record, 'transformerNo', '')],
+    ['Equipment Type', safeGet(record, 'equipmentType', 'ESP')],
+    ['Equipment Name', safeGet(record, 'equipment.equipmentName', '') || `ESP Transformer ${safeGet(record, 'transformerNo', '')}`],
+    ['', ''],
+    ['📋 INSPECTION DETAILS', ''],
+    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
+    ['Test Date', formatExcelDate(safeGet(record, 'inspectionDate', ''))],
+    ['Month', months[safeGet(record, 'month', 1) - 1] || 'Unknown'],
+    ['Inspector', safeGet(record, 'doneBy', '') || 'Not specified'],
+    ['Test Standard', 'IEEE C57.91 / IEC 60076'],
+    ['', ''],
+    ['🌡️ TEMPERATURE MEASUREMENTS', ''],
+    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
+    ['📊 Critical Thresholds: Normal <40°C, Caution 40-60°C, Warning 60-80°C, Critical >80°C', ''],
+    ['', ''],
+    ['🔌 MCCB Measurements', ''],
+    ['MCCB R-Phase', `${measurements.mccbRPhase || 0}°C`],
+    ['MCCB B-Phase', `${measurements.mccbBPhase || 0}°C`],
+    ['MCCB C O/G-1', `${measurements.mccbCOG1 || 0}°C`],
+    ['MCCB C O/G-2', `${measurements.mccbCOG2 || 0}°C`],
+    ['MCCB Body Temperature', `${measurements.mccbBodyTemp || 0}°C`],
+    ['', ''],
+    ['🌀 COOLING SYSTEM MEASUREMENTS', ''],
+    ['SCR Cooling Fins Temperature', `${measurements.scrCoolingFinsTemp || 0}°C`],
+    ['SCR Cooling Fan', `${measurements.scrCoolingFan || 0}°C`],
+    ['Panel Exhaust Fan', `${measurements.panelExhaustFan || 0}°C`],
+    ['MCC Forced Cooling Fan', `${measurements.mccForcedCoolingFanTemp || 0}°C`],
+    ['', ''],
+    ['⚡ ELECTRICAL MEASUREMENTS', ''],
+    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
+    ['kV/mA', `${measurements.kvMa || 0}`],
+    ['SP/Min', `${measurements.spMin || 0} rpm`],
+    ['RDI68', `${measurements.rdi68 || 0}`],
+    ['RDI69', `${measurements.rdi69 || 0}`],
+    ['RDI70', `${measurements.rdi70 || 0}`],
+    ['', ''],
+    ['🎯 OVERALL ASSESSMENT', ''],
+    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
+    ['🌡️ Temperature Status', status],
+    ['📊 Maximum Temperature', `${maxTemp}°C`],
+    ['⚠️ Critical Threshold', '80°C (Immediate action required)'],
+    ['🎯 Recommended Action', maxTemp > 80 ? 'Immediate shutdown and investigation' : maxTemp > 60 ? 'Schedule maintenance' : maxTemp > 40 ? 'Monitor closely' : 'Continue normal operation'],
+    ['', ''],
+    ['💬 INSPECTOR REMARKS', ''],
+    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
+    ['Notes', safeGet(record, 'remarks', 'No specific remarks recorded')],
+    ['', ''],
+    ['📅 REPORT INFORMATION', ''],
+    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
+    ['Report Generated', formatExcelDate(new Date())],
+    ['Generated By', 'Vale Equipment Management System v2.0'],
+    ['Report Type', 'ESP MCC Thermography - Comprehensive Analysis'],
+    ['Document Security', 'Internal Use - Electrical Maintenance'],
+    ['Next Test Due', 'As per maintenance schedule']
+  ]
+
+  // Create workbook with professional styling
+  const workbook = XLSX.utils.book_new()
+  const worksheet = XLSX.utils.aoa_to_sheet(data)
+  
+  // Set optimized column widths
+  worksheet['!cols'] = [{ wch: 50 }, { wch: 35 }]
+  
+  // Professional styling
+  const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1')
+  for (let row = 0; row <= range.e.r; row++) {
+    for (let col = range.s.c; col <= range.e.c; col++) {
+      const cellAddress = XLSX.utils.encode_cell({ r: row, c: col })
+      if (!worksheet[cellAddress]) continue
+      
+      const cellValue = worksheet[cellAddress].v
+      
+      // Main title (row 0)
+      if (row === 0) {
+        worksheet[cellAddress].s = {
+          font: { bold: true, sz: 18, color: { rgb: "FFFFFF" }, name: "Calibri" },
+          fill: { fgColor: { rgb: "E67E22" }, patternType: "solid" },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: {
+            top: { style: "thick", color: { rgb: "D35400" } },
+            bottom: { style: "thick", color: { rgb: "D35400" } },
+            left: { style: "thick", color: { rgb: "D35400" } },
+            right: { style: "thick", color: { rgb: "D35400" } }
+          }
+        }
+      }
+      // Subtitle (row 1)
+      else if (row === 1) {
+        worksheet[cellAddress].s = {
+          font: { italic: true, sz: 12, color: { rgb: "2C3E50" }, name: "Calibri" },
+          fill: { fgColor: { rgb: "F8C471" }, patternType: "solid" },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: {
+            top: { style: "thin", color: { rgb: "E67E22" } },
+            bottom: { style: "medium", color: { rgb: "E67E22" } },
+            left: { style: "medium", color: { rgb: "E67E22" } },
+            right: { style: "medium", color: { rgb: "E67E22" } }
+          }
+        }
+      }
+      // Section headers with emojis
+      else if (col === 0 && typeof cellValue === 'string' && (cellValue.includes('🏭') || cellValue.includes('📋') || 
+        cellValue.includes('🌡️') || cellValue.includes('⚡') || cellValue.includes('🎯') || cellValue.includes('💬') || cellValue.includes('📅'))) {
+        worksheet[cellAddress].s = {
+          font: { bold: true, sz: 14, color: { rgb: "FFFFFF" }, name: "Calibri" },
+          fill: { fgColor: { rgb: "E67E22" }, patternType: "solid" },
+          alignment: { horizontal: "left", vertical: "center" },
+          border: {
+            top: { style: "thick", color: { rgb: "D35400" } },
+            bottom: { style: "thick", color: { rgb: "D35400" } },
+            left: { style: "thick", color: { rgb: "D35400" } },
+            right: { style: "thick", color: { rgb: "D35400" } }
+          }
+        }
+      }
+      // Status row with dynamic coloring
+      else if (cellValue === status) {
+        worksheet[cellAddress].s = {
+          font: { bold: true, sz: 12, color: { rgb: statusColor }, name: "Calibri" },
+          fill: { fgColor: { rgb: statusBg }, patternType: "solid" },
+          alignment: { horizontal: "left", vertical: "center" },
+          border: {
+            top: { style: "medium", color: { rgb: statusColor } },
+            bottom: { style: "medium", color: { rgb: statusColor } },
+            left: { style: "medium", color: { rgb: statusColor } },
+            right: { style: "medium", color: { rgb: statusColor } }
+          }
+        }
+      }
+      // Temperature value highlighting
+      else if (col === 1 && typeof cellValue === 'string' && cellValue.includes('°C')) {
+        const tempValue = parseFloat(cellValue)
+        let tempColor = '2ECC71' // Green for normal
+        let tempBg = 'E8F8F5'
+        
+        if (tempValue > 80) {
+          tempColor = 'E74C3C' // Red for critical
+          tempBg = 'FADBD8'
+        } else if (tempValue > 60) {
+          tempColor = 'E74C3C' // Red for warning
+          tempBg = 'FADBD8'
+        } else if (tempValue > 40) {
+          tempColor = 'F39C12' // Orange for caution
+          tempBg = 'FEF9E7'
+        }
+        
+        worksheet[cellAddress].s = {
+          font: { bold: true, sz: 11, color: { rgb: tempColor }, name: "Calibri" },
+          fill: { fgColor: { rgb: tempBg }, patternType: "solid" },
+          alignment: { horizontal: "left", vertical: "center" },
+          border: {
+            top: { style: "thin", color: { rgb: tempColor } },
+            bottom: { style: "thin", color: { rgb: tempColor } },
+            left: { style: "thin", color: { rgb: tempColor } },
+            right: { style: "thin", color: { rgb: tempColor } }
+          }
+        }
+      }
+      // Regular data cells
+      else {
+        worksheet[cellAddress].s = {
+          font: { sz: 10, name: "Calibri", color: { rgb: "2C3E50" } },
+          alignment: { horizontal: col === 0 ? "left" : "left", vertical: "center", wrapText: true },
+          border: {
+            top: { style: "thin", color: { rgb: "D5DBDB" } },
+            bottom: { style: "thin", color: { rgb: "D5DBDB" } },
+            left: { style: "thin", color: { rgb: "D5DBDB" } },
+            right: { style: "thin", color: { rgb: "D5DBDB" } }
+          }
+        }
+        
+        // Alternating row colors
+        if (row % 2 === 0) {
+          worksheet[cellAddress].s.fill = { fgColor: { rgb: "FAFAFA" }, patternType: "solid" }
+        } else {
+          worksheet[cellAddress].s.fill = { fgColor: { rgb: "FFFFFF" }, patternType: "solid" }
+        }
+      }
+    }
+  }
+  
+  // Enhanced row heights
+  worksheet['!rows'] = []
+  worksheet['!rows'][0] = { hpt: 35 } // Main title
+  worksheet['!rows'][1] = { hpt: 25 } // Subtitle
+  for (let i = 2; i < data.length; i++) {
+    if (data[i][0]?.includes('🏭') || data[i][0]?.includes('📋') || data[i][0]?.includes('🌡️') || 
+        data[i][0]?.includes('⚡') || data[i][0]?.includes('🎯') || data[i][0]?.includes('💬') || data[i][0]?.includes('📅')) {
+      worksheet['!rows'][i] = { hpt: 25 } // Section headers
+    } else {
+      worksheet['!rows'][i] = { hpt: 20 } // Regular rows
+    }
+  }
+  
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'ESP Thermography Report')
+  
+  const filename = `VALE-Thermography-Report-${safeGet(record, 'transformerNo', 'unknown')}-${new Date().toISOString().split('T')[0]}.xlsx`
+  XLSX.writeFile(workbook, filename)
+}

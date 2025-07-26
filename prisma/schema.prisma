@@ -22,6 +22,7 @@ model EquipmentMaster {
 
   carbonBrushRecords CarbonBrushRecord[]
   windingResistanceRecords WindingResistanceRecord[]
+  thermographyRecords ThermographyRecord[]
 
   @@map("equipment_master")
 }
@@ -62,4 +63,93 @@ model WindingResistanceRecord {
   equipment EquipmentMaster? @relation(fields: [motorNo], references: [tagNo])
 
   @@map("winding_resistance_records")
+}
+
+model EspThermographySession {
+  id                Int      @id @default(autoincrement())
+  espCode           String   @map("esp_code") // ESP-01, ESP-02, etc.
+  inspectionDate    DateTime @map("inspection_date")
+  month             Int      // 1-12 for months
+  doneBy            String?  @map("done_by")
+  step              Int      @default(1) // Current step (1-4)
+  isCompleted       Boolean  @default(false) @map("is_completed")
+  remarks           String?
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  transformerRecords EspTransformerRecord[]
+
+  @@map("esp_thermography_sessions")
+}
+
+model EspTransformerRecord {
+  id                        Int      @id @default(autoincrement())
+  sessionId                 Int      @map("session_id")
+  transformerNo             String   @map("transformer_no") // TF1, TF2, TF3
+  step                      Int      // Step number (1-4)
+  
+  // Main MCC measurements
+  mccbIcRPhase              Float?   @map("mccb_ic_r_phase")
+  mccbIcBPhase              Float?   @map("mccb_ic_b_phase")
+  mccbCOg1                  Float?   @map("mccb_c_og1")
+  mccbCOg2                  Float?   @map("mccb_c_og2")
+  mccbBodyTemp              Float?   @map("mccb_body_temp")
+  kvMa                      String?  @map("kv_ma")
+  spMin                     String?  @map("sp_min")
+  
+  // SCR measurements
+  scrCoolingFinsTemp        Float?   @map("scr_cooling_fins_temp")
+  scrCoolingFan             String?  @map("scr_cooling_fan")
+  panelExhaustFan           String?  @map("panel_exhaust_fan")
+  mccForcedCoolingFanTemp   String?  @map("mcc_forced_cooling_fan_temp")
+  
+  // RDI measurements
+  rdi68                     Float?   
+  rdi69                     Float?   
+  rdi70                     Float?   
+  
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  session EspThermographySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("esp_transformer_records")
+}
+
+// Keep the old model for backward compatibility
+model ThermographyRecord {
+  id                        Int      @id @default(autoincrement())
+  transformerNo             String   @map("transformer_no") // TF1, TF2, TF3
+  equipmentType             String   @default("ESP") @map("equipment_type")
+  inspectionDate            DateTime @map("inspection_date")
+  month                     Int      // 1-12 for months
+  doneBy                    String?  @map("done_by")
+  
+  // Main MCC measurements
+  mccbIcRPhase              Float?   @map("mccb_ic_r_phase")
+  mccbIcBPhase              Float?   @map("mccb_ic_b_phase")
+  mccbCOg1                  Float?   @map("mccb_c_og1")
+  mccbCOg2                  Float?   @map("mccb_c_og2")
+  mccbBodyTemp              Float?   @map("mccb_body_temp")
+  kvMa                      String?  @map("kv_ma")
+  spMin                     String?  @map("sp_min")
+  
+  // SCR measurements
+  scrCoolingFinsTemp        Float?   @map("scr_cooling_fins_temp")
+  scrCoolingFan             String?  @map("scr_cooling_fan")
+  panelExhaustFan           String?  @map("panel_exhaust_fan")
+  mccForcedCoolingFanTemp   String?  @map("mcc_forced_cooling_fan_temp")
+  
+  // RDI measurements
+  rdi68                     Float?   
+  rdi69                     Float?   
+  rdi70                     Float?   
+  
+  remarks                   String?
+  createdAt                 DateTime @default(now()) @map("created_at")
+  updatedAt                 DateTime @updatedAt @map("updated_at")
+
+  equipment EquipmentMaster? @relation(fields: [transformerNo], references: [tagNo])
+
+  @@map("thermography_records")
 }
