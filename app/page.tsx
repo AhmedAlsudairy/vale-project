@@ -1,9 +1,55 @@
+'use client'
+
 import Link from "next/link"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { BarChart3, Clipboard, QrCode, Settings, TrendingUp, Wrench, Shield, Clock, Package } from "lucide-react"
 
+interface Stats {
+  systemUptime: string
+  efficiencyImprovement: string
+  costReduction: string
+  downtimeReduction: string
+  totalEquipment: number
+  totalInspections: number
+  recentInspections: number
+  criticalEquipment: number
+  lastUpdated: string
+  fallback?: boolean
+}
+
 export default function HomePage() {
+  const [stats, setStats] = useState<Stats>({
+    systemUptime: "99.5%",
+    efficiencyImprovement: "75%",
+    costReduction: "45%",
+    downtimeReduction: "25%",
+    totalEquipment: 0,
+    totalInspections: 0,
+    recentInspections: 0,
+    criticalEquipment: 0,
+    lastUpdated: new Date().toISOString()
+  })
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await fetch('/api/dashboard/stats')
+        if (response.ok) {
+          const data = await response.json()
+          setStats(data)
+        }
+      } catch (error) {
+        console.error('Error fetching stats:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchStats()
+  }, [])
   return (
     <div className="container mx-auto p-4 sm:p-6 lg:p-8">
       {/* Hero Section - Responsive */}
@@ -38,7 +84,7 @@ export default function HomePage() {
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <Clipboard className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-              Carbon Brush Inspection
+              Carbon Brush Records
             </CardTitle>
             <CardDescription className="text-sm sm:text-base">
               Record and track carbon brush measurements, slip ring data, and maintenance history
@@ -46,7 +92,7 @@ export default function HomePage() {
           </CardHeader>
           <CardContent>
             <Link href="/carbon-brush">
-              <Button className="w-full text-sm sm:text-base">Start Inspection</Button>
+              <Button className="w-full text-sm sm:text-base">Start </Button>
             </Link>
           </CardContent>
         </Card>
@@ -159,40 +205,49 @@ export default function HomePage() {
                 <div className="flex items-center justify-center mb-2">
                   <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-primary mr-1" />
                 </div>
-                <div className="text-xl sm:text-2xl font-bold text-primary">24/7</div>
+                <div className="text-xl sm:text-2xl font-bold text-primary">
+                  {loading ? "..." : stats.systemUptime}
+                </div>
                 <p className="text-xs sm:text-sm text-muted-foreground">System Availability</p>
               </div>
               <div className="text-center p-3 sm:p-4 bg-muted rounded-lg">
                 <div className="flex items-center justify-center mb-2">
                   <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-primary mr-1" />
                 </div>
-                <div className="text-xl sm:text-2xl font-bold text-primary">95%</div>
-                <p className="text-xs sm:text-sm text-muted-foreground">Prediction Accuracy</p>
+                <div className="text-xl sm:text-2xl font-bold text-primary">
+                  {loading ? "..." : stats.efficiencyImprovement}
+                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground">Process Efficiency</p>
               </div>
               <div className="text-center p-3 sm:p-4 bg-muted rounded-lg">
                 <div className="flex items-center justify-center mb-2">
                   <Shield className="h-4 w-4 sm:h-5 sm:w-5 text-primary mr-1" />
                 </div>
-                <div className="text-xl sm:text-2xl font-bold text-primary">50%</div>
+                <div className="text-xl sm:text-2xl font-bold text-primary">
+                  {loading ? "..." : stats.costReduction}
+                </div>
                 <p className="text-xs sm:text-sm text-muted-foreground">Cost Reduction</p>
               </div>
               <div className="text-center p-3 sm:p-4 bg-muted rounded-lg">
                 <div className="flex items-center justify-center mb-2">
                   <Wrench className="h-4 w-4 sm:h-5 sm:w-5 text-primary mr-1" />
                 </div>
-                <div className="text-xl sm:text-2xl font-bold text-primary">30%</div>
+                <div className="text-xl sm:text-2xl font-bold text-primary">
+                  {loading ? "..." : stats.downtimeReduction}
+                </div>
                 <p className="text-xs sm:text-sm text-muted-foreground">Downtime Reduction</p>
               </div>
             </div>
 
-            {/* Additional Info */}
+            {/* Additional Info with Real Data */}
             <div className="mt-4 sm:mt-6 p-3 sm:p-4 bg-primary/5 rounded-lg border border-primary/10">
-              <h4 className="font-semibold text-sm sm:text-base mb-2 text-primary">Enterprise Ready</h4>
+              <h4 className="font-semibold text-sm sm:text-base mb-2 text-primary">Real-Time Statistics</h4>
               <ul className="text-xs sm:text-sm text-muted-foreground space-y-1">
-                <li>• Cloud-based with offline capability</li>
-                <li>• Multi-user access with role management</li>
-                <li>• API integration with existing systems</li>
-                <li>• Automated backup and data security</li>
+                <li>• {loading ? "Loading..." : `${stats.totalEquipment} Equipment Units Managed`}</li>
+                <li>• {loading ? "Loading..." : `${stats.totalInspections} Total Inspections Completed`}</li>
+                <li>• {loading ? "Loading..." : `${stats.recentInspections} Inspections Last 30 Days`}</li>
+                <li>• {loading ? "Loading..." : `${stats.criticalEquipment} Equipment Needs Attention`}</li>
+                {stats.fallback && <li>• <span className="text-orange-600">Using fallback data (database offline)</span></li>}
               </ul>
             </div>
           </CardContent>
@@ -207,12 +262,12 @@ export default function HomePage() {
               Ready to Transform Your Maintenance?
             </h2>
             <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6 max-w-2xl mx-auto">
-              Start with a carbon brush inspection or explore the dashboard to see how predictive maintenance can
+              Start with a carbon brush  or explore the dashboard to see how predictive maintenance can
               optimize your operations.
             </p>
             <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center max-w-md mx-auto">
               <Link href="/carbon-brush" className="flex-1">
-                <Button className="w-full text-sm sm:text-base">Start Inspection</Button>
+                <Button className="w-full text-sm sm:text-base">Start Testing</Button>
               </Link>
               <Link href="/dashboard" className="flex-1">
                 <Button variant="outline" className="w-full text-sm sm:text-base bg-transparent">

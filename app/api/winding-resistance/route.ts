@@ -41,6 +41,14 @@ export async function GET(request: NextRequest) {
 
     const records = await prisma.windingResistanceRecord.findMany({
       where: motorNo ? { motorNo } : undefined,
+      include: {
+        equipment: {
+          select: {
+            equipmentName: true,
+            equipmentType: true,
+          },
+        },
+      },
       orderBy: {
         createdAt: "desc",
       },

@@ -12,6 +12,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         equipment: {
           select: {
             equipmentName: true,
+            equipmentType: true,
           },
         },
       },

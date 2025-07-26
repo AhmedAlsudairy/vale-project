@@ -12,7 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { QRScanner } from "@/components/qr-scanner"
 import { generateQR } from "@/lib/qr-utils"
-import { Download, Plus, AlertTriangle, Calendar, User, Settings, Info, Zap, X, CheckCircle } from "lucide-react"
+import { exportWindingResistanceToExcel, exportSingleWindingResistanceToExcel } from "@/lib/excel-utils"
+import { Download, Plus, AlertTriangle, Calendar, User, Settings, Info, Zap, X, CheckCircle, Search, Filter, FileSpreadsheet } from "lucide-react"
 import { Combobox } from "@/components/ui/combobox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ErrorBoundary } from "@/components/error-boundary"
@@ -67,6 +68,13 @@ export default function WindingResistancePage() {
   const [error, setError] = useState<string | null>(null)
   // Add success state
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  
+  // Search and filter states
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [dateFilter, setDateFilter] = useState<string>("all")
+  const [filteredRecords, setFilteredRecords] = useState<WindingResistanceRecord[]>([])
+  const [showFilters, setShowFilters] = useState(false)
 
   const [formData, setFormData] = useState({
     motor_no: "",
@@ -183,6 +191,52 @@ export default function WindingResistancePage() {
       fetchPreviousRecords(selectedMotorNo)
     }
   }, [selectedMotorNo])
+
+  // Filter records based on search and filters
+  useEffect(() => {
+    let filtered = records
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(record =>
+        record.motorNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (record.doneBy && record.doneBy.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (record.remarks && record.remarks.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
+    }
+
+    // Status filter
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(record => {
+        const avgIR = (record.irValues.ug_1min + record.irValues.vg_1min + record.irValues.wg_1min) / 3
+        const status = avgIR >= 10 ? "good" : avgIR >= 1 ? "acceptable" : "poor"
+        return status === statusFilter
+      })
+    }
+
+    // Date filter
+    if (dateFilter !== "all") {
+      const now = new Date()
+      filtered = filtered.filter(record => {
+        const recordDate = new Date(record.inspectionDate)
+        const diffTime = Math.abs(now.getTime() - recordDate.getTime())
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        
+        switch (dateFilter) {
+          case "week":
+            return diffDays <= 7
+          case "month":
+            return diffDays <= 30
+          case "quarter":
+            return diffDays <= 90
+          default:
+            return true
+        }
+      })
+    }
+
+    setFilteredRecords(filtered)
+  }, [records, searchTerm, statusFilter, dateFilter])
 
   const fetchRecords = async () => {
     try {
@@ -1085,6 +1139,104 @@ export default function WindingResistancePage() {
           </Card>
         )}
 
+        {/* Search and Filters Section */}
+        <Card>
+          <CardHeader className="pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle className="text-lg">Search & Filter Tests</CardTitle>
+                <CardDescription>Find specific winding resistance tests</CardDescription>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => exportWindingResistanceToExcel(filteredRecords, searchTerm !== "" || statusFilter !== "all" || dateFilter !== "all")}
+                  className="w-full sm:w-auto"
+                >
+                  <FileSpreadsheet className="w-4 h-4 mr-2" />
+                  Export Excel
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="w-full sm:w-auto"
+                >
+                  <Filter className="w-4 h-4 mr-2" />
+                  {showFilters ? "Hide Filters" : "Show Filters"}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                placeholder="Search by motor number, technician, or remarks..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Filters */}
+            {showFilters && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-4 border-t">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Status Filter</Label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="good">Good (≥10 GΩ)</SelectItem>
+                      <SelectItem value="acceptable">Acceptable (≥1 GΩ)</SelectItem>
+                      <SelectItem value="poor">Poor (&lt;1 GΩ)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Date Range</Label>
+                  <Select value={dateFilter} onValueChange={setDateFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All dates" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Time</SelectItem>
+                      <SelectItem value="week">Last 7 Days</SelectItem>
+                      <SelectItem value="month">Last 30 Days</SelectItem>
+                      <SelectItem value="quarter">Last 90 Days</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchTerm("")
+                      setStatusFilter("all")
+                      setDateFilter("all")
+                    }}
+                    className="w-full"
+                  >
+                    Clear Filters
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Results count */}
+            <div className="text-sm text-muted-foreground">
+              Showing {filteredRecords.length} of {records.length} test records
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Records Table - Responsive */}
         <Card>
           <CardHeader className="pb-4 sm:pb-6">
@@ -1096,13 +1248,15 @@ export default function WindingResistancePage() {
             <div className="block sm:hidden">
               <ScrollArea className="h-[400px]">
                 <div className="space-y-3 p-4">
-                  {records.length === 0 ? (
+                  {filteredRecords.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                       <p className="text-sm">No test records found.</p>
-                      <p className="text-xs">Create your first test above.</p>
+                      <p className="text-xs">
+                        {records.length === 0 ? "Create your first test above." : "Try adjusting your search or filters."}
+                      </p>
                     </div>
                   ) : (
-                    records.map((record) => {
+                    filteredRecords.map((record) => {
                       const avgIR = (record.irValues.ug_1min + record.irValues.vg_1min + record.irValues.wg_1min) / 3
                       const piStatus = getPIStatus(record.polarizationIndex || 0)
 
@@ -1144,6 +1298,15 @@ export default function WindingResistancePage() {
                               <Download className="w-3 h-3 mr-1" />
                               QR
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => exportSingleWindingResistanceToExcel(record)}
+                              className="flex-1"
+                            >
+                              <FileSpreadsheet className="w-3 h-3 mr-1" />
+                              Excel
+                            </Button>
                           </div>
                         </Card>
                       )
@@ -1169,17 +1332,19 @@ export default function WindingResistancePage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {records.length === 0 ? (
+                      {filteredRecords.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                             <div className="space-y-2">
                               <p>No test records found.</p>
-                              <p className="text-sm">Create your first test above.</p>
+                              <p className="text-sm">
+                                {records.length === 0 ? "Create your first test above." : "Try adjusting your search or filters."}
+                              </p>
                             </div>
                           </TableCell>
                         </TableRow>
                       ) : (
-                        records.map((record) => {
+                        filteredRecords.map((record) => {
                           const avgIR =
                             (record.irValues.ug_1min + record.irValues.vg_1min + record.irValues.wg_1min) / 3
                           const piStatus = getPIStatus(record.polarizationIndex || 0)
@@ -1201,6 +1366,9 @@ export default function WindingResistancePage() {
                                 <div className="flex gap-1">
                                   <Button size="sm" variant="outline" onClick={() => generateRecordQR(record.id)}>
                                     <Download className="w-3 h-3" />
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={() => exportSingleWindingResistanceToExcel(record)}>
+                                    <FileSpreadsheet className="w-3 h-3" />
                                   </Button>
                                 </div>
                               </TableCell>

@@ -13,7 +13,8 @@ import { Badge } from "@/components/ui/badge"
 import { QRScanner } from "@/components/qr-scanner"
 import { generateQR } from "@/lib/qr-utils"
 import { forecastBrushLife } from "@/lib/forecast"
-import { Download, Plus, TrendingUp, AlertTriangle, Calendar, User, FileText, Settings, Info, X } from "lucide-react"
+import { exportCarbonBrushToExcel, exportSingleCarbonBrushToExcel } from "@/lib/excel-utils"
+import { Download, Plus, TrendingUp, AlertTriangle, Calendar, User, FileText, Settings, Info, X, Search, Filter, FileSpreadsheet } from "lucide-react"
 import { Combobox } from "@/components/ui/combobox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
@@ -54,6 +55,15 @@ function CarbonBrushPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // Search and filter states
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [dateFilter, setDateFilter] = useState<string>("all")
+  const [brushTypeFilter, setBrushTypeFilter] = useState<string>("all")
+  const [filteredRecords, setFilteredRecords] = useState<CarbonBrushRecord[]>([])
+  const [showFilters, setShowFilters] = useState(false)
+  
   const [brushTypes, setBrushTypes] = useState([
     { value: "C80X", label: "C80X" },
     { value: "C60X", label: "C60X" },
@@ -129,6 +139,60 @@ function CarbonBrushPage() {
       fetchPreviousRecords(selectedTagNo)
     }
   }, [selectedTagNo])
+
+  // Filter records based on search and filters
+  useEffect(() => {
+    let filtered = records
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(record =>
+        record.tagNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.equipmentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        record.brushType.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (record.doneBy && record.doneBy.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (record.remarks && record.remarks.toLowerCase().includes(searchTerm.toLowerCase()))
+      )
+    }
+
+    // Status filter based on brush wear
+    if (statusFilter !== "all") {
+      filtered = filtered.filter(record => {
+        const measurements = Object.values(record.measurements)
+        const avgMeasurement = measurements.reduce((sum, val) => sum + val, 0) / measurements.length
+        const status = avgMeasurement >= 25 ? "good" : avgMeasurement >= 15 ? "acceptable" : "poor"
+        return status === statusFilter
+      })
+    }
+
+    // Brush type filter
+    if (brushTypeFilter !== "all") {
+      filtered = filtered.filter(record => record.brushType === brushTypeFilter)
+    }
+
+    // Date filter
+    if (dateFilter !== "all") {
+      const now = new Date()
+      filtered = filtered.filter(record => {
+        const recordDate = new Date(record.inspectionDate)
+        const diffTime = Math.abs(now.getTime() - recordDate.getTime())
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        
+        switch (dateFilter) {
+          case "week":
+            return diffDays <= 7
+          case "month":
+            return diffDays <= 30
+          case "quarter":
+            return diffDays <= 90
+          default:
+            return true
+        }
+      })
+    }
+
+    setFilteredRecords(filtered)
+  }, [records, searchTerm, statusFilter, dateFilter, brushTypeFilter])
 
   const fetchRecords = async () => {
     try {
@@ -783,18 +847,126 @@ function CarbonBrushPage() {
             <CardTitle className="text-lg sm:text-xl">Recent Inspections</CardTitle>
             <CardDescription className="text-sm sm:text-base">Latest carbon brush inspection records</CardDescription>
           </CardHeader>
+          
+          {/* Search and Filter Controls */}
+          <div className="px-6 pb-4">
+            <div className="flex flex-col gap-4">
+              {/* Search bar and filter toggle */}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by Tag No, Equipment Name, Brush Type, Technician, or Remarks..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => exportCarbonBrushToExcel(filteredRecords, searchTerm !== "" || statusFilter !== "all" || dateFilter !== "all" || brushTypeFilter !== "all")}
+                  className="shrink-0"
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Excel
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="shrink-0"
+                >
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filters {(statusFilter !== "all" || dateFilter !== "all" || brushTypeFilter !== "all") && 
+                    <Badge variant="secondary" className="ml-2">•</Badge>}
+                </Button>
+              </div>
+
+              {/* Filter options */}
+              {showFilters && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Status</label>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="good">Good (≥25)</SelectItem>
+                        <SelectItem value="acceptable">Acceptable (15-24)</SelectItem>
+                        <SelectItem value="poor">Poor (&lt;15)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+              <div>
+                <label className="text-sm font-medium mb-2 block">Brush Type</label>
+                <Select value={brushTypeFilter} onValueChange={setBrushTypeFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="C80X">C80X</SelectItem>
+                    <SelectItem value="C60X">C60X</SelectItem>
+                    <SelectItem value="C100X">C100X</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>                  <div>
+                    <label className="text-sm font-medium mb-2 block">Date Range</label>
+                    <Select value={dateFilter} onValueChange={setDateFilter}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Time</SelectItem>
+                        <SelectItem value="week">Last Week</SelectItem>
+                        <SelectItem value="month">Last Month</SelectItem>
+                        <SelectItem value="quarter">Last Quarter</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="md:col-span-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchTerm("")
+                        setStatusFilter("all")
+                        setDateFilter("all")
+                        setBrushTypeFilter("all")
+                      }}
+                      className="w-full"
+                    >
+                      Clear All Filters
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Results count */}
+              <div className="text-sm text-muted-foreground">
+                Showing {filteredRecords.length} of {records.length} records
+              </div>
+            </div>
+          </div>
+
           <CardContent className="p-0 sm:p-6">
             {/* Mobile Card View */}
             <div className="block sm:hidden">
               <ScrollArea className="h-[400px]">
                 <div className="space-y-3 p-4">
-                  {records.length === 0 ? (
+                  {filteredRecords.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                       <p className="text-sm">No inspection records found.</p>
-                      <p className="text-xs">Create your first inspection above.</p>
+                      <p className="text-xs">
+                        {searchTerm || statusFilter !== "all" || dateFilter !== "all" || brushTypeFilter !== "all" 
+                          ? "Try adjusting your search or filters." 
+                          : "Create your first inspection above."}
+                      </p>
                     </div>
                   ) : (
-                    records.map((record) => {
+                    filteredRecords.map((record) => {
                       const minMeasurement = Math.min(...Object.values(record.measurements))
                       const forecast = getForecast(record.tagNo)
 
@@ -844,6 +1016,15 @@ function CarbonBrushPage() {
                               <Download className="w-3 h-3 mr-1" />
                               QR
                             </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => exportSingleCarbonBrushToExcel(record)}
+                              className="flex-1"
+                            >
+                              <FileSpreadsheet className="w-3 h-3 mr-1" />
+                              Excel
+                            </Button>
                             {forecast && (
                               <Button
                                 size="sm"
@@ -881,17 +1062,21 @@ function CarbonBrushPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {records.length === 0 ? (
+                      {filteredRecords.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                             <div className="space-y-2">
                               <p>No inspection records found.</p>
-                              <p className="text-sm">Create your first inspection above.</p>
+                              <p className="text-sm">
+                                {searchTerm || statusFilter !== "all" || dateFilter !== "all" || brushTypeFilter !== "all"
+                                  ? "Try adjusting your search or filters."
+                                  : "Create your first inspection above."}
+                              </p>
                             </div>
                           </TableCell>
                         </TableRow>
                       ) : (
-                        records.map((record) => {
+                        filteredRecords.map((record) => {
                           const minMeasurement = Math.min(...Object.values(record.measurements))
                           const forecast = getForecast(record.tagNo)
 
@@ -917,6 +1102,9 @@ function CarbonBrushPage() {
                                 <div className="flex gap-1">
                                   <Button size="sm" variant="outline" onClick={() => generateRecordQR(record.id)}>
                                     <Download className="w-3 h-3" />
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={() => exportSingleCarbonBrushToExcel(record)}>
+                                    <FileSpreadsheet className="w-3 h-3" />
                                   </Button>
                                   {forecast && (
                                     <Button

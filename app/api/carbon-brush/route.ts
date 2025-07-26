@@ -47,6 +47,7 @@ export async function GET(request: NextRequest) {
         equipment: {
           select: {
             equipmentName: true,
+            equipmentType: true,
           },
         },
       },
@@ -120,6 +121,7 @@ export async function POST(request: NextRequest) {
         equipment: {
           select: {
             equipmentName: true,
+            equipmentType: true,
           },
         },
       },

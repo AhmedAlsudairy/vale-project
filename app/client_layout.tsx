@@ -48,7 +48,7 @@ function Navigation() {
             <Link href="/carbon-brush">
               <Button variant="ghost" size="sm" className="text-sm">
                 <Clipboard className="h-4 w-4 mr-2" />
-                Inspections
+                Brushes Tests
               </Button>
             </Link>
             <Link href="/winding-resistance">
@@ -90,7 +90,7 @@ function Navigation() {
               <Link href="/carbon-brush" onClick={() => setIsOpen(false)}>
                 <Button variant="ghost" className="w-full justify-start text-sm">
                   <Clipboard className="h-4 w-4 mr-2" />
-                  Inspections
+                  Brushes Tests
                 </Button>
               </Link>
               <Link href="/winding-resistance" onClick={() => setIsOpen(false)}>

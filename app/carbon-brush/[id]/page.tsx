@@ -142,7 +142,7 @@ export default function CarbonBrushDetailPage() {
             <Link href="/carbon-brush">
               <Button>
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Inspections
+                Back to Tests
               </Button>
             </Link>
           </div>
@@ -166,12 +166,12 @@ export default function CarbonBrushDetailPage() {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Link href="/carbon-brush" className="hover:text-primary">
-                Carbon Brush Inspections
+                Carbon Brush Tests
               </Link>
               <span>/</span>
               <span>Record #{record.id}</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Carbon Brush Inspection</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">Carbon Brush Tests</h1>
             <p className="text-sm sm:text-base text-muted-foreground">
               {record.tagNo} • {formatDate(record.inspectionDate)}
             </p>
@@ -239,7 +239,7 @@ export default function CarbonBrushDetailPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Clipboard className="w-5 h-5" />
-                Inspection Information
+                Tests Information
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -391,7 +391,7 @@ export default function CarbonBrushDetailPage() {
               <Link href="/carbon-brush">
                 <Button variant="outline" className="w-full sm:w-auto bg-transparent">
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Inspections
+                  Back to Tests
                 </Button>
               </Link>
               <Button onClick={generateRecordQR} className="w-full sm:w-auto">

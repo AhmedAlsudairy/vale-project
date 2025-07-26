@@ -8,6 +8,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     const record = await prisma.windingResistanceRecord.findUnique({
       where: { id },
+      include: {
+        equipment: {
+          select: {
+            equipmentName: true,
+            equipmentType: true,
+          },
+        },
+      },
     })
 
     if (!record) {
