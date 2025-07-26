@@ -403,38 +403,170 @@ export default function ThermographyPage() {
     try {
       const XLSX = await import('xlsx')
       
+      // Prepare organized data with proper grouping
       const exportData = filteredSessions.flatMap(session => 
-        session.transformerRecords.map(record => ({
+        session.transformerRecords.map((record, index) => ({
+          // Session Information
           'ESP Code': session.espCode,
-          'Transformer': record.transformerNo,
-          'Step': record.step,
+          'Equipment Name': equipment.find(eq => eq.tagNo === session.espCode)?.equipmentName || 'ESP MCC Panel',
           'Month': months.find(m => m.value === session.month)?.label || session.month,
           'Inspection Date': format(new Date(session.inspectionDate), 'dd/MM/yyyy'),
-          'MCCB R-Phase': record.mccbIcRPhase || '',
-          'MCCB B-Phase': record.mccbIcBPhase || '',
-          'MCCB C O/G-1': record.mccbCOg1 || '',
-          'MCCB C O/G-2': record.mccbCOg2 || '',
-          'MCCB Body Temperature': record.mccbBodyTemp || '',
-          'SCR Cooling Fins Temperature': record.scrCoolingFinsTemp || '',
-          'RDI-68': record.rdi68 || '',
-          'RDI-69': record.rdi69 || '',
-          'RDI-70': record.rdi70 || '',
-          'Done By': session.doneBy || '',
-          'Remarks': session.remarks || '',
-          'Status': session.isCompleted ? 'Completed' : 'In Progress',
-          'Created Date': format(new Date(session.createdAt), 'dd/MM/yyyy HH:mm')
+          'Inspector': session.doneBy || '',
+          
+          // Transformer Details
+          'Transformer': record.transformerNo,
+          'Step': record.step,
+          
+          // MCCB Temperature Measurements (°C)
+          'MCCB R-Phase (°C)': record.mccbIcRPhase || '-',
+          'MCCB B-Phase (°C)': record.mccbIcBPhase || '-',
+          'MCCB C O/G-1 (°C)': record.mccbCOg1 || '-',
+          'MCCB C O/G-2 (°C)': record.mccbCOg2 || '-',
+          'MCCB Body Temp (°C)': record.mccbBodyTemp || '-',
+          
+          // Cooling System Measurements
+          'SCR Cooling Fins (°C)': record.scrCoolingFinsTemp || '-',
+          'SCR Cooling Fan': record.scrCoolingFan || '-',
+          'Panel Exhaust Fan': record.panelExhaustFan || '-',
+          'MCC Forced Cooling Fan': record.mccForcedCoolingFanTemp || '-',
+          
+          // RDI Measurements (°C)
+          'RDI-68 (°C)': record.rdi68 || '-',
+          'RDI-69 (°C)': record.rdi69 || '-',
+          'RDI-70 (°C)': record.rdi70 || '-',
+          
+          // Additional Data
+          'KV/MA': record.kvMa || '-',
+          'SP Min': record.spMin || '-',
+          
+          // Session Status & Notes
+          'Session Status': session.isCompleted ? 'Completed' : 'In Progress',
+          'Completion Progress': `${session.transformerRecords.filter(r => 
+            (r.mccbIcRPhase && r.mccbIcRPhase > 0) ||
+            (r.mccbIcBPhase && r.mccbIcBPhase > 0) ||
+            (r.mccbBodyTemp && r.mccbBodyTemp > 0)
+          ).length}/3 Transformers`,
+          'Session Remarks': session.remarks || '',
+          'Record Created': format(new Date(session.createdAt), 'dd/MM/yyyy HH:mm'),
+          
+          // Temperature Analysis
+          'Max Temperature (°C)': Math.max(
+            record.mccbIcRPhase || 0,
+            record.mccbIcBPhase || 0,
+            record.mccbCOg1 || 0,
+            record.mccbCOg2 || 0,
+            record.mccbBodyTemp || 0,
+            record.scrCoolingFinsTemp || 0,
+            record.rdi68 || 0,
+            record.rdi69 || 0,
+            record.rdi70 || 0
+          ) || '-',
+          'Temperature Status': (() => {
+            const maxTemp = Math.max(
+              record.mccbIcRPhase || 0,
+              record.mccbIcBPhase || 0,
+              record.mccbCOg1 || 0,
+              record.mccbCOg2 || 0,
+              record.mccbBodyTemp || 0,
+              record.scrCoolingFinsTemp || 0,
+              record.rdi68 || 0,
+              record.rdi69 || 0,
+              record.rdi70 || 0
+            )
+            if (maxTemp > 80) return 'Critical'
+            if (maxTemp > 60) return 'Warning'
+            return maxTemp > 0 ? 'Normal' : 'No Data'
+          })()
         }))
       )
 
+      // Create worksheet with organized data
       const worksheet = XLSX.utils.json_to_sheet(exportData)
-      const workbook = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'ESP Thermography Sessions')
       
-      const fileName = `ESP_Thermography_Sessions_${format(new Date(), 'dd-MM-yyyy')}.xlsx`
+      // Set column widths for better readability
+      const columnWidths = [
+        { wch: 12 }, // ESP Code
+        { wch: 25 }, // Equipment Name
+        { wch: 12 }, // Month
+        { wch: 15 }, // Inspection Date
+        { wch: 15 }, // Inspector
+        { wch: 12 }, // Transformer
+        { wch: 8 },  // Step
+        { wch: 16 }, // MCCB R-Phase
+        { wch: 16 }, // MCCB B-Phase
+        { wch: 16 }, // MCCB C O/G-1
+        { wch: 16 }, // MCCB C O/G-2
+        { wch: 16 }, // MCCB Body Temp
+        { wch: 18 }, // SCR Cooling Fins
+        { wch: 16 }, // SCR Cooling Fan
+        { wch: 18 }, // Panel Exhaust Fan
+        { wch: 20 }, // MCC Forced Cooling Fan
+        { wch: 14 }, // RDI-68
+        { wch: 14 }, // RDI-69
+        { wch: 14 }, // RDI-70
+        { wch: 10 }, // KV/MA
+        { wch: 10 }, // SP Min
+        { wch: 15 }, // Session Status
+        { wch: 18 }, // Completion Progress
+        { wch: 30 }, // Session Remarks
+        { wch: 18 }, // Record Created
+        { wch: 18 }, // Max Temperature
+        { wch: 16 }  // Temperature Status
+      ]
+      worksheet['!cols'] = columnWidths
+
+      // Create workbook and add worksheet
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'ESP Thermography Data')
+      
+      // Add summary sheet
+      const summaryData = [
+        { 'Summary': 'Total ESP Sessions', 'Value': filteredSessions.length },
+        { 'Summary': 'Completed Sessions', 'Value': filteredSessions.filter(s => s.isCompleted).length },
+        { 'Summary': 'In Progress Sessions', 'Value': filteredSessions.filter(s => !s.isCompleted).length },
+        { 'Summary': 'Total Transformer Records', 'Value': filteredSessions.reduce((sum, s) => sum + s.transformerRecords.length, 0) },
+        { 'Summary': 'Critical Temperature Records', 'Value': filteredSessions.reduce((sum, s) => 
+          sum + s.transformerRecords.filter(r => {
+            const maxTemp = Math.max(
+              r.mccbIcRPhase || 0, r.mccbIcBPhase || 0, r.mccbCOg1 || 0, 
+              r.mccbCOg2 || 0, r.mccbBodyTemp || 0, r.scrCoolingFinsTemp || 0,
+              r.rdi68 || 0, r.rdi69 || 0, r.rdi70 || 0
+            )
+            return maxTemp > 80
+          }).length, 0) },
+        { 'Summary': 'Warning Temperature Records', 'Value': filteredSessions.reduce((sum, s) => 
+          sum + s.transformerRecords.filter(r => {
+            const maxTemp = Math.max(
+              r.mccbIcRPhase || 0, r.mccbIcBPhase || 0, r.mccbCOg1 || 0, 
+              r.mccbCOg2 || 0, r.mccbBodyTemp || 0, r.scrCoolingFinsTemp || 0,
+              r.rdi68 || 0, r.rdi69 || 0, r.rdi70 || 0
+            )
+            return maxTemp > 60 && maxTemp <= 80
+          }).length, 0) },
+        { 'Summary': 'Export Date', 'Value': format(new Date(), 'dd/MM/yyyy HH:mm') },
+        { 'Summary': 'Export Filters Applied', 'Value': hasActiveFilters ? 'Yes' : 'No' }
+      ]
+      
+      const summaryWorksheet = XLSX.utils.json_to_sheet(summaryData)
+      summaryWorksheet['!cols'] = [{ wch: 25 }, { wch: 20 }]
+      XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary')
+      
+      // Generate filename with professional naming
+      const fileName = `ESP_Thermography_Report_${format(new Date(), 'dd-MM-yyyy_HHmm')}.xlsx`
       XLSX.writeFile(workbook, fileName)
+      
+      toast({
+        title: "Export Successful",
+        description: `ESP thermography data exported to ${fileName}`,
+        variant: "default",
+      })
     } catch (error) {
       console.error('Error exporting to Excel:', error)
-      alert('Error exporting data to Excel')
+      toast({
+        title: "Export Failed",
+        description: "Error exporting ESP thermography data to Excel",
+        variant: "destructive",
+      })
     }
   }
 
@@ -601,52 +733,58 @@ export default function ThermographyPage() {
   }
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 lg:p-8">
+    <div className="container mx-auto p-3 sm:p-4 lg:p-6 xl:p-8">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold flex items-center gap-2">
-            <Thermometer className="h-8 w-8 text-orange-500" />
-            ESP MCC Thermography
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Step-by-step temperature monitoring for ESP transformers (TF1, TF2, TF3)
-          </p>
+      <div className="flex flex-col gap-4 mb-4 sm:mb-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold flex items-center gap-2">
+              <Thermometer className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-orange-500 flex-shrink-0" />
+              <span className="truncate">ESP MCC Thermography</span>
+            </h1>
+            <p className="text-muted-foreground mt-1 text-sm sm:text-base">
+              Step-by-step temperature monitoring for ESP transformers (TF1, TF2, TF3)
+            </p>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <QRScanner onScan={handleQRScan} />
-          <Button onClick={downloadExcel} variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Export Excel
+        
+        {/* Action Buttons - Mobile Optimized */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
+          <div className="w-full sm:w-auto">
+            <QRScanner onScan={handleQRScan} />
+          </div>
+          <Button onClick={downloadExcel} variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm">
+            <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Export </span>Excel
           </Button>
-          <Button onClick={() => setShowForm(true)} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            New ESP Session
+          <Button onClick={() => setShowForm(true)} size="sm" className="w-full sm:w-auto text-xs sm:text-sm">
+            <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">New </span>ESP Session
           </Button>
         </div>
       </div>
 
       {/* Form Modal */}
       {showForm && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5" />
+        <Card className="mb-4 sm:mb-6">
+          <CardHeader className="pb-3 sm:pb-6">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Zap className="h-4 w-4 sm:h-5 sm:w-5" />
               {editingSession ? 'Edit ESP Thermography Session' : 'New ESP Thermography Session'}
             </CardTitle>
-            <CardDescription>
+            <CardDescription className="text-sm sm:text-base">
               {editingSession 
                 ? `Editing session for ${editingSession.espCode} - Complete or update temperature measurements`
                 : 'Record temperature measurements for all transformers (TF1, TF2, TF3) in one session'
               }
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
+          <CardContent className="pt-0">
+            <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
               {/* Session Details */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="espCode">ESP Code / Tag No</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                <div className="sm:col-span-2 lg:col-span-1">
+                  <Label htmlFor="espCode" className="text-sm font-medium">ESP Code / Tag No</Label>
                   <Combobox
                     options={equipment.map((eq) => ({
                       value: eq.tagNo,
@@ -671,28 +809,28 @@ export default function ThermographyPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="equipmentName">Equipment Name</Label>
+                  <Label htmlFor="equipmentName" className="text-sm font-medium">Equipment Name</Label>
                   <Input
                     id="equipmentName"
                     value={formData.equipmentName}
                     onChange={(e) => setFormData(prev => ({ ...prev, equipmentName: e.target.value }))}
                     placeholder="e.g., ESP MCC Panel 1"
-                    className="w-full"
+                    className="w-full text-sm"
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="equipmentType">Equipment Type</Label>
+                  <Label htmlFor="equipmentType" className="text-sm font-medium">Equipment Type</Label>
                   <Select 
                     value={formData.equipmentType} 
                     onValueChange={(value) => setFormData(prev => ({ ...prev, equipmentType: value }))}
                   >
-                    <SelectTrigger className="w-full">
+                    <SelectTrigger className="w-full text-sm">
                       <SelectValue placeholder="Select equipment type" />
                     </SelectTrigger>
                     <SelectContent>
                       {equipmentTypes.map((type) => (
-                        <SelectItem key={type} value={type}>
+                        <SelectItem key={type} value={type} className="text-sm">
                           {type}
                         </SelectItem>
                       ))}
@@ -702,19 +840,19 @@ export default function ThermographyPage() {
               </div>
 
               {/* Inspection Details */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 <div>
-                  <Label htmlFor="month">Month</Label>
+                  <Label htmlFor="month" className="text-sm font-medium">Month</Label>
                   <Select 
                     value={formData.month} 
                     onValueChange={(value) => setFormData(prev => ({ ...prev, month: value }))}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="text-sm">
                       <SelectValue placeholder="Select Month" />
                     </SelectTrigger>
                     <SelectContent>
                       {months.map(month => (
-                        <SelectItem key={month.value} value={month.value.toString()}>
+                        <SelectItem key={month.value} value={month.value.toString()} className="text-sm">
                           {month.label}
                         </SelectItem>
                       ))}
@@ -723,17 +861,17 @@ export default function ThermographyPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="inspectionDate">Inspection Date</Label>
+                  <Label htmlFor="inspectionDate" className="text-sm font-medium">Inspection Date</Label>
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
                         variant="outline"
                         className={cn(
-                          'w-full justify-start text-left font-normal',
+                          'w-full justify-start text-left font-normal text-sm',
                           !formData.inspectionDate && 'text-muted-foreground'
                         )}
                       >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        <CalendarIcon className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         {formData.inspectionDate ? (
                           format(formData.inspectionDate, 'PPP')
                         ) : (
@@ -753,125 +891,135 @@ export default function ThermographyPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="doneBy">Inspector</Label>
+                  <Label htmlFor="doneBy" className="text-sm font-medium">Inspector</Label>
                   <Input
                     id="doneBy"
                     value={formData.doneBy}
                     onChange={(e) => setFormData(prev => ({ ...prev, doneBy: e.target.value }))}
                     placeholder="Inspector name"
+                    className="text-sm"
                   />
                 </div>
               </div>
 
               {/* Transformers Measurements */}
-              <div className="space-y-6">
-                <h3 className="text-lg font-semibold">Transformer Measurements</h3>
+              <div className="space-y-4 sm:space-y-6">
+                <h3 className="text-base sm:text-lg font-semibold">Transformer Measurements</h3>
                 
                 {formData.transformers.map((transformer, transformerIndex) => (
-                  <Card key={transformer.transformerNo} className="p-4">
-                    <h4 className="text-md font-medium mb-4 flex items-center gap-2">
-                      <Zap className="h-4 w-4" />
+                  <Card key={transformer.transformerNo} className="p-3 sm:p-4">
+                    <h4 className="text-sm sm:text-base font-medium mb-3 sm:mb-4 flex items-center gap-2">
+                      <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
                       {transformer.transformerNo} - Step {transformerIndex + 1}
                     </h4>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                       {/* MCCB Measurements */}
                       <div>
-                        <Label>MCCB R-Phase (°C)</Label>
+                        <Label className="text-xs sm:text-sm font-medium">MCCB R-Phase (°C)</Label>
                         <Input
                           type="number"
                           step="0.1"
                           value={transformer.mccbIcRPhase}
                           onChange={(e) => updateTransformerField(transformerIndex, 'mccbIcRPhase', e.target.value)}
                           placeholder="Temperature"
+                          className="text-sm"
                         />
                       </div>
                       
                       <div>
-                        <Label>MCCB B-Phase (°C)</Label>
+                        <Label className="text-xs sm:text-sm font-medium">MCCB B-Phase (°C)</Label>
                         <Input
                           type="number"
                           step="0.1"
                           value={transformer.mccbIcBPhase}
                           onChange={(e) => updateTransformerField(transformerIndex, 'mccbIcBPhase', e.target.value)}
                           placeholder="Temperature"
+                          className="text-sm"
                         />
                       </div>
                       
                       <div>
-                        <Label>MCCB C O/G-1 (°C)</Label>
+                        <Label className="text-xs sm:text-sm font-medium">MCCB C O/G-1 (°C)</Label>
                         <Input
                           type="number"
                           step="0.1"
                           value={transformer.mccbCOg1}
                           onChange={(e) => updateTransformerField(transformerIndex, 'mccbCOg1', e.target.value)}
                           placeholder="Temperature"
+                          className="text-sm"
                         />
                       </div>
                       
                       <div>
-                        <Label>MCCB C O/G-2 (°C)</Label>
+                        <Label className="text-xs sm:text-sm font-medium">MCCB C O/G-2 (°C)</Label>
                         <Input
                           type="number"
                           step="0.1"
                           value={transformer.mccbCOg2}
                           onChange={(e) => updateTransformerField(transformerIndex, 'mccbCOg2', e.target.value)}
                           placeholder="Temperature"
+                          className="text-sm"
                         />
                       </div>
                       
                       <div>
-                        <Label>MCCB Body (°C)</Label>
+                        <Label className="text-xs sm:text-sm font-medium">MCCB Body (°C)</Label>
                         <Input
                           type="number"
                           step="0.1"
                           value={transformer.mccbBodyTemp}
                           onChange={(e) => updateTransformerField(transformerIndex, 'mccbBodyTemp', e.target.value)}
                           placeholder="Temperature"
+                          className="text-sm"
                         />
                       </div>
                       
                       <div>
-                        <Label>SCR Cooling Fins (°C)</Label>
+                        <Label className="text-xs sm:text-sm font-medium">SCR Cooling Fins (°C)</Label>
                         <Input
                           type="number"
                           step="0.1"
                           value={transformer.scrCoolingFinsTemp}
                           onChange={(e) => updateTransformerField(transformerIndex, 'scrCoolingFinsTemp', e.target.value)}
                           placeholder="Temperature"
+                          className="text-sm"
                         />
                       </div>
                       
                       <div>
-                        <Label>RDI-68 (°C)</Label>
+                        <Label className="text-xs sm:text-sm font-medium">RDI-68 (°C)</Label>
                         <Input
                           type="number"
                           step="0.1"
                           value={transformer.rdi68}
                           onChange={(e) => updateTransformerField(transformerIndex, 'rdi68', e.target.value)}
                           placeholder="Temperature"
+                          className="text-sm"
                         />
                       </div>
                       
                       <div>
-                        <Label>RDI-69 (°C)</Label>
+                        <Label className="text-xs sm:text-sm font-medium">RDI-69 (°C)</Label>
                         <Input
                           type="number"
                           step="0.1"
                           value={transformer.rdi69}
                           onChange={(e) => updateTransformerField(transformerIndex, 'rdi69', e.target.value)}
                           placeholder="Temperature"
+                          className="text-sm"
                         />
                       </div>
                       
                       <div>
-                        <Label>RDI-70 (°C)</Label>
+                        <Label className="text-xs sm:text-sm font-medium">RDI-70 (°C)</Label>
                         <Input
                           type="number"
                           step="0.1"
                           value={transformer.rdi70}
                           onChange={(e) => updateTransformerField(transformerIndex, 'rdi70', e.target.value)}
                           placeholder="Temperature"
+                          className="text-sm"
                         />
                       </div>
                     </div>
@@ -881,22 +1029,23 @@ export default function ThermographyPage() {
 
               {/* Remarks */}
               <div>
-                <Label htmlFor="remarks">Session Remarks</Label>
+                <Label htmlFor="remarks" className="text-sm font-medium">Session Remarks</Label>
                 <Textarea
                   id="remarks"
                   value={formData.remarks}
                   onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))}
                   placeholder="Overall session notes and observations..."
                   rows={3}
+                  className="text-sm"
                 />
               </div>
 
               {/* Form Actions */}
-              <div className="flex gap-2 justify-end">
-                <Button type="button" variant="outline" onClick={handleCancelEdit}>
+              <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+                <Button type="button" variant="outline" onClick={handleCancelEdit} className="w-full sm:w-auto">
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" className="w-full sm:w-auto">
                   {editingSession ? 'Update ESP Session' : 'Save ESP Session'}
                 </Button>
               </div>
@@ -906,49 +1055,49 @@ export default function ThermographyPage() {
       )}
 
       {/* Filters */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="text-lg">Filters & Search</CardTitle>
+      <Card className="mb-4 sm:mb-6">
+        <CardHeader className="pb-3 sm:pb-4">
+          <CardTitle className="text-sm sm:text-base">Filters & Search</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <Label htmlFor="search">Search</Label>
+        <CardContent className="pt-0">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="sm:col-span-2 lg:col-span-1">
+              <Label htmlFor="search" className="text-xs sm:text-sm font-medium">Search</Label>
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                 <Input
                   id="search"
                   placeholder="Search ESP code, inspector..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
+                  className="pl-8 sm:pl-10 text-xs sm:text-sm"
                 />
               </div>
             </div>
             <div>
-              <Label htmlFor="esp">ESP Code</Label>
+              <Label htmlFor="esp" className="text-xs sm:text-sm font-medium">ESP Code</Label>
               <Select value={selectedEsp} onValueChange={setSelectedEsp}>
-                <SelectTrigger>
+                <SelectTrigger className="text-xs sm:text-sm">
                   <SelectValue placeholder="All ESP Codes" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All ESP Codes</SelectItem>
+                  <SelectItem value="all" className="text-xs sm:text-sm">All ESP Codes</SelectItem>
                   {espCodes.map(code => (
-                    <SelectItem key={code} value={code}>{code}</SelectItem>
+                    <SelectItem key={code} value={code} className="text-xs sm:text-sm">{code}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label htmlFor="month">Month</Label>
+              <Label htmlFor="month" className="text-xs sm:text-sm font-medium">Month</Label>
               <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                <SelectTrigger>
+                <SelectTrigger className="text-xs sm:text-sm">
                   <SelectValue placeholder="All Months" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Months</SelectItem>
+                  <SelectItem value="all" className="text-xs sm:text-sm">All Months</SelectItem>
                   {months.map(month => (
-                    <SelectItem key={month.value} value={month.value.toString()}>
+                    <SelectItem key={month.value} value={month.value.toString()} className="text-xs sm:text-sm">
                       {month.label}
                     </SelectItem>
                   ))}
@@ -963,7 +1112,7 @@ export default function ThermographyPage() {
                   setSelectedEsp('all')
                   setSelectedMonth('all')
                 }}
-                className="w-full"
+                className="w-full text-xs sm:text-sm h-9"
               >
                 Clear Filters
               </Button>
@@ -974,19 +1123,19 @@ export default function ThermographyPage() {
 
       {/* Sessions Table */}
       <Card>
-        <CardHeader>
-          <CardTitle>ESP Thermography Sessions ({filteredSessions.length})</CardTitle>
-          <CardDescription>
+        <CardHeader className="pb-3 sm:pb-4">
+          <CardTitle className="text-sm sm:text-base">ESP Thermography Sessions ({filteredSessions.length})</CardTitle>
+          <CardDescription className="text-xs sm:text-sm">
             Step-by-step temperature monitoring sessions for ESP transformers
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
+        <CardContent className="pt-0">
+          <div className="space-y-3 sm:space-y-4">
             {filteredSessions.length === 0 ? (
-              <div className="text-center py-8">
-                <Thermometer className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground">No ESP sessions found</p>
-                <p className="text-sm text-muted-foreground mt-1">
+              <div className="text-center py-6 sm:py-8">
+                <Thermometer className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground text-xs sm:text-sm">No ESP sessions found</p>
+                <p className="text-xs text-muted-foreground mt-1">
                   {hasActiveFilters 
                     ? 'Try adjusting your filters' 
                     : 'Add your first ESP thermography session'
@@ -995,45 +1144,51 @@ export default function ThermographyPage() {
               </div>
             ) : (
               filteredSessions.map((session) => (
-                <div key={session.id} className="border rounded-lg p-4">
+                <div key={session.id} className="border rounded-lg p-2 sm:p-3">
                   <Collapsible>
                     <CollapsibleTrigger 
-                      className="flex items-center justify-between w-full hover:bg-muted/50 p-2 rounded"
+                      className="flex items-center justify-between w-full hover:bg-muted/50 p-2 rounded text-left"
                       onClick={() => toggleSessionExpansion(session.id)}
                     >
-                      <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
                         {expandedSessions.has(session.id) ? (
-                          <ChevronDown className="h-4 w-4" />
+                          <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                         ) : (
-                          <ChevronRight className="h-4 w-4" />
+                          <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
                         )}
-                        <div className="text-left">
-                          <div className="font-medium">{session.espCode}</div>
-                          <div className="text-sm text-muted-foreground">
+                        <div className="text-left flex-1 min-w-0">
+                          <div className="font-medium text-xs sm:text-sm truncate">{session.espCode}</div>
+                          <div className="text-xs text-muted-foreground">
                             {format(new Date(session.inspectionDate), 'dd/MM/yyyy')} • 
                             {months.find(m => m.value === session.month)?.label}
                           </div>
                         </div>
-                        <Badge variant={session.isCompleted ? "default" : "secondary"}>
-                          {session.isCompleted ? (
-                            <>
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Completed ({getCompletedTransformersCount(session)}/3)
-                            </>
-                          ) : (
-                            <>
-                              <Clock className="h-3 w-3 mr-1" />
-                              In Progress ({getCompletedTransformersCount(session)}/3)
-                            </>
+                        <div className="flex flex-col items-end gap-1">
+                          <Badge variant={session.isCompleted ? "default" : "secondary"} className="text-xs px-1 sm:px-2">
+                            {session.isCompleted ? (
+                              <>
+                                <CheckCircle className="h-2 w-2 sm:h-3 sm:w-3 mr-1" />
+                                <span className="hidden sm:inline">Complete</span>
+                                <span className="sm:hidden">Done</span>
+                                ({getCompletedTransformersCount(session)}/3)
+                              </>
+                            ) : (
+                              <>
+                                <Clock className="h-2 w-2 sm:h-3 sm:w-3 mr-1" />
+                                <span className="hidden sm:inline">In Progress</span>
+                                <span className="sm:hidden">Pending</span>
+                                ({getCompletedTransformersCount(session)}/3)
+                              </>
+                            )}
+                          </Badge>
+                          {session.doneBy && (
+                            <div className="text-xs text-muted-foreground hidden sm:block">
+                              By: {session.doneBy}
+                            </div>
                           )}
-                        </Badge>
-                        {session.doneBy && (
-                          <div className="text-sm text-muted-foreground">
-                            By: {session.doneBy}
-                          </div>
-                        )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 ml-2">
                         {!session.isCompleted && (
                           <Button
                             variant="outline"
@@ -1042,30 +1197,104 @@ export default function ThermographyPage() {
                               e.stopPropagation()
                               handleEditSession(session)
                             }}
-                            className="text-xs"
+                            className="text-xs px-2 py-1 h-7"
                           >
-                            Complete
+                            <span className="hidden sm:inline">Complete</span>
+                            <span className="sm:hidden">Edit</span>
                           </Button>
                         )}
                       </div>
                     </CollapsibleTrigger>
                     
-                    <CollapsibleContent className="mt-4">
-                      <div className="overflow-x-auto">
+                    <CollapsibleContent className="mt-3 sm:mt-4">
+                      {/* Mobile Card View - Hidden on Desktop */}
+                      <div className="lg:hidden space-y-2 sm:space-y-3">
+                        {session.transformerRecords.map((record) => {
+                          const maxTemp = Math.max(
+                            record.mccbIcRPhase || 0,
+                            record.mccbIcBPhase || 0,
+                            record.mccbCOg1 || 0,
+                            record.mccbCOg2 || 0,
+                            record.mccbBodyTemp || 0,
+                            record.scrCoolingFinsTemp || 0,
+                            record.rdi68 || 0,
+                            record.rdi69 || 0,
+                            record.rdi70 || 0
+                          )
+                          const status = getTemperatureStatus(maxTemp)
+                          
+                          return (
+                            <Card key={record.id} className="p-3">
+                              <div className="flex items-center justify-between mb-2 sm:mb-3">
+                                <div className="flex items-center gap-2">
+                                  <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
+                                  <span className="font-medium text-sm">{record.transformerNo}</span>
+                                  <Badge variant="outline" className="text-xs">Step {record.step}</Badge>
+                                </div>
+                                <Badge className={status.class + " text-xs"}>
+                                  {status.label}
+                                </Badge>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
+                                <div>
+                                  <span className="text-muted-foreground">MCCB R-Phase:</span>
+                                  <div className="font-medium">{record.mccbIcRPhase ? `${record.mccbIcRPhase}°C` : '-'}</div>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">MCCB B-Phase:</span>
+                                  <div className="font-medium">{record.mccbIcBPhase ? `${record.mccbIcBPhase}°C` : '-'}</div>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">MCCB C O/G-1:</span>
+                                  <div className="font-medium">{record.mccbCOg1 ? `${record.mccbCOg1}°C` : '-'}</div>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">MCCB C O/G-2:</span>
+                                  <div className="font-medium">{record.mccbCOg2 ? `${record.mccbCOg2}°C` : '-'}</div>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">MCCB Body:</span>
+                                  <div className="font-medium">{record.mccbBodyTemp ? `${record.mccbBodyTemp}°C` : '-'}</div>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">SCR Fins:</span>
+                                  <div className="font-medium">{record.scrCoolingFinsTemp ? `${record.scrCoolingFinsTemp}°C` : '-'}</div>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">RDI-68:</span>
+                                  <div className="font-medium">{record.rdi68 ? `${record.rdi68}°C` : '-'}</div>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">RDI-69:</span>
+                                  <div className="font-medium">{record.rdi69 ? `${record.rdi69}°C` : '-'}</div>
+                                </div>
+                                <div className="col-span-2">
+                                  <span className="text-muted-foreground">RDI-70:</span>
+                                  <div className="font-medium">{record.rdi70 ? `${record.rdi70}°C` : '-'}</div>
+                                </div>
+                              </div>
+                            </Card>
+                          )
+                        })}
+                      </div>
+
+                      {/* Desktop Table View - Hidden on Mobile */}
+                      <div className="hidden lg:block overflow-x-auto">
                         <Table>
                           <TableHeader>
                             <TableRow>
-                              <TableHead>Transformer</TableHead>
-                              <TableHead>Step</TableHead>
-                              <TableHead>MCCB R-Phase</TableHead>
-                              <TableHead>MCCB B-Phase</TableHead>
-                              <TableHead>MCCB C O/G-1</TableHead>
-                              <TableHead>MCCB C O/G-2</TableHead>
-                              <TableHead>MCCB Body</TableHead>
-                              <TableHead>SCR Fins</TableHead>
-                              <TableHead>RDI-68</TableHead>
-                              <TableHead>RDI-69</TableHead>
-                              <TableHead>RDI-70</TableHead>
+                              <TableHead className="text-xs">Transformer</TableHead>
+                              <TableHead className="text-xs">Step</TableHead>
+                              <TableHead className="text-xs">MCCB R-Phase</TableHead>
+                              <TableHead className="text-xs">MCCB B-Phase</TableHead>
+                              <TableHead className="text-xs">MCCB C O/G-1</TableHead>
+                              <TableHead className="text-xs">MCCB C O/G-2</TableHead>
+                              <TableHead className="text-xs">MCCB Body</TableHead>
+                              <TableHead className="text-xs">SCR Fins</TableHead>
+                              <TableHead className="text-xs">RDI-68</TableHead>
+                              <TableHead className="text-xs">RDI-69</TableHead>
+                              <TableHead className="text-xs">RDI-70</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -1085,33 +1314,33 @@ export default function ThermographyPage() {
                               
                               return (
                                 <TableRow key={record.id}>
-                                  <TableCell>
+                                  <TableCell className="text-xs">
                                     <div className="flex items-center gap-2">
-                                      <Zap className="h-4 w-4" />
+                                      <Zap className="h-3 w-3" />
                                       <span className="font-medium">{record.transformerNo}</span>
                                     </div>
                                   </TableCell>
-                                  <TableCell>
-                                    <Badge variant="outline">
+                                  <TableCell className="text-xs">
+                                    <Badge variant="outline" className="text-xs">
                                       Step {record.step}
                                     </Badge>
                                   </TableCell>
-                                  <TableCell>{record.mccbIcRPhase ? `${record.mccbIcRPhase}°C` : '-'}</TableCell>
-                                  <TableCell>{record.mccbIcBPhase ? `${record.mccbIcBPhase}°C` : '-'}</TableCell>
-                                  <TableCell>{record.mccbCOg1 ? `${record.mccbCOg1}°C` : '-'}</TableCell>
-                                  <TableCell>{record.mccbCOg2 ? `${record.mccbCOg2}°C` : '-'}</TableCell>
-                                  <TableCell>
+                                  <TableCell className="text-xs">{record.mccbIcRPhase ? `${record.mccbIcRPhase}°C` : '-'}</TableCell>
+                                  <TableCell className="text-xs">{record.mccbIcBPhase ? `${record.mccbIcBPhase}°C` : '-'}</TableCell>
+                                  <TableCell className="text-xs">{record.mccbCOg1 ? `${record.mccbCOg1}°C` : '-'}</TableCell>
+                                  <TableCell className="text-xs">{record.mccbCOg2 ? `${record.mccbCOg2}°C` : '-'}</TableCell>
+                                  <TableCell className="text-xs">
                                     <div className="flex items-center gap-2">
                                       {record.mccbBodyTemp ? `${record.mccbBodyTemp}°C` : '-'}
-                                      <Badge className={status.class}>
+                                      <Badge className={status.class + " text-xs"}>
                                         {status.label}
                                       </Badge>
                                     </div>
                                   </TableCell>
-                                  <TableCell>{record.scrCoolingFinsTemp ? `${record.scrCoolingFinsTemp}°C` : '-'}</TableCell>
-                                  <TableCell>{record.rdi68 ? `${record.rdi68}°C` : '-'}</TableCell>
-                                  <TableCell>{record.rdi69 ? `${record.rdi69}°C` : '-'}</TableCell>
-                                  <TableCell>{record.rdi70 ? `${record.rdi70}°C` : '-'}</TableCell>
+                                  <TableCell className="text-xs">{record.scrCoolingFinsTemp ? `${record.scrCoolingFinsTemp}°C` : '-'}</TableCell>
+                                  <TableCell className="text-xs">{record.rdi68 ? `${record.rdi68}°C` : '-'}</TableCell>
+                                  <TableCell className="text-xs">{record.rdi69 ? `${record.rdi69}°C` : '-'}</TableCell>
+                                  <TableCell className="text-xs">{record.rdi70 ? `${record.rdi70}°C` : '-'}</TableCell>
                                 </TableRow>
                               )
                             })}
@@ -1120,8 +1349,8 @@ export default function ThermographyPage() {
                       </div>
                       
                       {session.remarks && (
-                        <div className="mt-4 p-3 bg-muted rounded-lg">
-                          <p className="text-sm">
+                        <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-muted rounded-lg">
+                          <p className="text-xs sm:text-sm">
                             <strong>Session Remarks:</strong> {session.remarks}
                           </p>
                         </div>

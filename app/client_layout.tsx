@@ -7,7 +7,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Toaster } from "@/components/ui/toaster"
-import { Home, BarChart3, Clipboard, Settings, Menu, X, Zap, Package } from "lucide-react"
+import { Home, BarChart3, Clipboard, Settings, Menu, X, Zap, Package, Thermometer } from "lucide-react"
 import { useState } from "react"
 import { ErrorBoundary } from "@/components/error-boundary"
 
@@ -27,7 +27,7 @@ function Navigation() {
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-2">
+          <div className="hidden lg:flex items-center space-x-2">
             <Link href="/">
               <Button variant="ghost" size="sm" className="text-sm">
                 <Home className="h-4 w-4 mr-2" />
@@ -49,26 +49,32 @@ function Navigation() {
             <Link href="/carbon-brush">
               <Button variant="ghost" size="sm" className="text-sm">
                 <Clipboard className="h-4 w-4 mr-2" />
-                Brushes Tests
+                Brushes
               </Button>
             </Link>
             <Link href="/winding-resistance">
               <Button variant="ghost" size="sm" className="text-sm">
                 <Zap className="h-4 w-4 mr-2" />
-                Winding Tests
+                Winding
+              </Button>
+            </Link>
+            <Link href="/thermography">
+              <Button variant="ghost" size="sm" className="text-sm">
+                <Thermometer className="h-4 w-4 mr-2" />
+                Thermo
               </Button>
             </Link>
           </div>
 
           {/* Mobile Menu Button */}
-          <Button variant="ghost" size="sm" className="md:hidden" onClick={() => setIsOpen(!isOpen)}>
+          <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setIsOpen(!isOpen)}>
             {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
         </div>
 
         {/* Mobile Navigation */}
         {isOpen && (
-          <div className="md:hidden mt-4 pb-4 border-t">
+          <div className="lg:hidden mt-4 pb-4 border-t">
             <div className="flex flex-col space-y-2 pt-4">
               <Link href="/" onClick={() => setIsOpen(false)}>
                 <Button variant="ghost" className="w-full justify-start text-sm">
@@ -91,13 +97,19 @@ function Navigation() {
               <Link href="/carbon-brush" onClick={() => setIsOpen(false)}>
                 <Button variant="ghost" className="w-full justify-start text-sm">
                   <Clipboard className="h-4 w-4 mr-2" />
-                  Brushes Tests
+                  Carbon Brushes
                 </Button>
               </Link>
               <Link href="/winding-resistance" onClick={() => setIsOpen(false)}>
                 <Button variant="ghost" className="w-full justify-start text-sm">
                   <Zap className="h-4 w-4 mr-2" />
-                  Winding Tests
+                  Winding Resistance
+                </Button>
+              </Link>
+              <Link href="/thermography" onClick={() => setIsOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start text-sm">
+                  <Thermometer className="h-4 w-4 mr-2" />
+                  ESP Thermography
                 </Button>
               </Link>
             </div>

@@ -150,9 +150,9 @@ export default function EquipmentDetailPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-4 sm:p-6">
         <div className="flex items-center justify-center h-64">
-          <div className="text-lg">Loading equipment details...</div>
+          <div className="text-base sm:text-lg">Loading equipment details...</div>
         </div>
       </div>
     )
@@ -160,11 +160,11 @@ export default function EquipmentDetailPage() {
 
   if (!equipment) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-4 sm:p-6">
         <div className="text-center py-8">
-          <p className="text-muted-foreground">Equipment not found.</p>
+          <p className="text-muted-foreground text-sm sm:text-base">Equipment not found.</p>
           <Link href="/equipment">
-            <Button className="mt-4">
+            <Button className="mt-4 text-sm sm:text-base">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Equipment
             </Button>
@@ -175,29 +175,29 @@ export default function EquipmentDetailPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="container mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <Link href="/equipment">
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" className="w-full sm:w-auto">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
         </Link>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold">{equipment.tagNo}</h1>
-          <p className="text-muted-foreground text-lg">{equipment.equipmentName}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold">{equipment.tagNo}</h1>
+          <p className="text-muted-foreground text-base sm:text-lg">{equipment.equipmentName}</p>
         </div>
-        <Button onClick={() => setShowEditForm(true)} variant="outline">
+        <Button onClick={() => setShowEditForm(true)} variant="outline" className="w-full sm:w-auto">
           <Edit className="w-4 h-4 mr-2" />
           Edit
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Equipment Information</CardTitle>
+              <CardTitle className="text-lg sm:text-xl">Equipment Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -293,22 +293,26 @@ export default function EquipmentDetailPage() {
           ) : (
             // Non-ESP Equipment - Show tabs for carbon brush and winding resistance
             <Tabs defaultValue="carbon-brush" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="carbon-brush" className="flex items-center gap-2">
-                  <Wrench className="w-4 h-4" />
-                  Carbon Brush ({carbonBrushRecords.length})
+              <TabsList className="grid w-full grid-cols-2 h-auto">
+                <TabsTrigger value="carbon-brush" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm p-2 sm:p-3">
+                  <Wrench className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Carbon Brush</span>
+                  <span className="sm:hidden">Brush</span>
+                  ({carbonBrushRecords.length})
                 </TabsTrigger>
-                <TabsTrigger value="winding" className="flex items-center gap-2">
-                  <Zap className="w-4 h-4" />
-                  Winding Resistance ({windingRecords.length})
+                <TabsTrigger value="winding" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm p-2 sm:p-3">
+                  <Zap className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden sm:inline">Winding Resistance</span>
+                  <span className="sm:hidden">Winding</span>
+                  ({windingRecords.length})
                 </TabsTrigger>
               </TabsList>
 
             <TabsContent value="carbon-brush" className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Carbon Brush Records</h3>
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                <h3 className="text-base sm:text-lg font-semibold">Carbon Brush Records</h3>
                 <Link href={`/carbon-brush?equipment=${equipment.tagNo}`}>
-                  <Button>
+                  <Button className="w-full sm:w-auto text-sm">
                     <Plus className="w-4 h-4 mr-2" />
                     Add Record
                   </Button>
@@ -359,10 +363,10 @@ export default function EquipmentDetailPage() {
             </TabsContent>
 
             <TabsContent value="winding" className="space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-semibold">Winding Resistance Records</h3>
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                <h3 className="text-base sm:text-lg font-semibold">Winding Resistance Records</h3>
                 <Link href={`/winding-resistance?equipment=${equipment.tagNo}`}>
-                  <Button>
+                  <Button className="w-full sm:w-auto text-sm">
                     <Plus className="w-4 h-4 mr-2" />
                     Add Record
                   </Button>
@@ -414,19 +418,19 @@ export default function EquipmentDetailPage() {
           )}
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center justify-between">
+              <CardTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-base sm:text-lg">
                 QR Code
                 <div className="flex gap-2">
                   {equipment.qrCode && (
-                    <Button onClick={downloadQRCode} size="sm" variant="outline">
-                      <Download className="w-4 h-4" />
+                    <Button onClick={downloadQRCode} size="sm" variant="outline" className="text-xs sm:text-sm">
+                      <Download className="w-3 h-3 sm:w-4 sm:h-4" />
                     </Button>
                   )}
                   {!equipment.qrCode && (
-                    <Button onClick={generateQRCode} size="sm">
+                    <Button onClick={generateQRCode} size="sm" className="text-xs sm:text-sm">
                       Generate
                     </Button>
                   )}
@@ -435,29 +439,29 @@ export default function EquipmentDetailPage() {
             </CardHeader>
             <CardContent>
               {equipment.qrCode ? (
-                <div className="text-center space-y-4">
+                <div className="text-center space-y-3 sm:space-y-4">
                   <img
                     src={equipment.qrCode}
                     alt="Equipment QR Code"
-                    className="w-full max-w-[200px] mx-auto border rounded"
+                    className="w-full max-w-[150px] sm:max-w-[200px] mx-auto border rounded"
                   />
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Scan to quickly access this equipment
                   </p>
                   <Button
                     onClick={downloadQRCode}
                     variant="outline"
                     size="sm"
-                    className="w-full"
+                    className="w-full text-xs sm:text-sm"
                   >
-                    <Download className="w-4 h-4 mr-2" />
+                    <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                     Download QR Code
                   </Button>
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <QrCode className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                  <p className="text-sm text-muted-foreground">No QR code generated yet</p>
+                <div className="text-center py-6 sm:py-8">
+                  <QrCode className="w-10 h-10 sm:w-12 sm:h-12 mx-auto text-muted-foreground mb-3 sm:mb-4" />
+                  <p className="text-xs sm:text-sm text-muted-foreground">No QR code generated yet</p>
                 </div>
               )}
             </CardContent>
@@ -465,18 +469,18 @@ export default function EquipmentDetailPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Quick Actions</CardTitle>
+              <CardTitle className="text-base sm:text-lg">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <Link href={`/carbon-brush?equipment=${equipment.tagNo}`} className="block">
-                <Button variant="outline" className="w-full justify-start">
-                  <Wrench className="w-4 h-4 mr-2" />
+                <Button variant="outline" className="w-full justify-start text-xs sm:text-sm p-2 sm:p-3">
+                  <Wrench className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                   Add Carbon Brush Record
                 </Button>
               </Link>
               <Link href={`/winding-resistance?equipment=${equipment.tagNo}`} className="block">
-                <Button variant="outline" className="w-full justify-start">
-                  <Zap className="w-4 h-4 mr-2" />
+                <Button variant="outline" className="w-full justify-start text-xs sm:text-sm p-2 sm:p-3">
+                  <Zap className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                   Add Winding Resistance Record
                 </Button>
               </Link>

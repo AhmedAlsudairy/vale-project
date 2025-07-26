@@ -320,27 +320,27 @@ export default function EquipmentPage() {
                 )}
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Link href={`/equipment/${item.id}`} className="flex-1">
-                  <Button variant="outline" className="w-full">
+                  <Button variant="outline" className="w-full text-sm">
                     View Details
                   </Button>
                 </Link>
                 {item.equipmentType.includes('ESP') ? (
                   <Link href={`/thermography?equipment=${item.tagNo}`} className="flex-1">
-                    <Button variant="outline" className="w-full">
+                    <Button variant="outline" className="w-full text-sm">
                       Add Thermography
                     </Button>
                   </Link>
                 ) : (
                   <>
                     <Link href={`/carbon-brush?equipment=${item.tagNo}`} className="flex-1">
-                      <Button variant="outline" className="w-full">
+                      <Button variant="outline" className="w-full text-sm">
                         Add Brush
                       </Button>
                     </Link>
                     <Link href={`/winding-resistance?equipment=${item.tagNo}`} className="flex-1">
-                      <Button variant="outline" className="w-full">
+                      <Button variant="outline" className="w-full text-sm">
                         Add Winding
                       </Button>
                     </Link>
