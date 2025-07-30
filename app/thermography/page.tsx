@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -126,10 +125,6 @@ const equipmentTypes = [
 
 export default function ThermographyPage() {
   const { toast } = useToast()
-  const searchParams = useSearchParams()
-  
-  // Initialize activeTab based on URL parameter
-  const initialTab = searchParams.get('tab') === 'lrs' ? 'lrs' : 'esp'
   
   const [sessions, setSessions] = useState<EspSession[]>([])
   const [lrsSessions, setLrsSessions] = useState<LrsSession[]>([])
@@ -138,7 +133,7 @@ export default function ThermographyPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLrsSubmitting, setIsLrsSubmitting] = useState(false)
   const [isRecordingSubmitting, setIsRecordingSubmitting] = useState(false)
-  const [activeTab, setActiveTab] = useState<'esp' | 'lrs'>(initialTab)
+  const [activeTab, setActiveTab] = useState<'esp' | 'lrs'>('esp')
   const [showForm, setShowForm] = useState(false)
   const [showLrsForm, setShowLrsForm] = useState(false)
   const [editingSession, setEditingSession] = useState<EspSession | null>(null)
@@ -301,14 +296,6 @@ export default function ThermographyPage() {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [showInstructionModal, espInstructionImages.length])
-
-  // Handle URL parameter changes
-  useEffect(() => {
-    const tab = searchParams.get('tab')
-    if (tab === 'lrs' || tab === 'esp') {
-      setActiveTab(tab)
-    }
-  }, [searchParams])
 
   const fetchEquipment = async () => {
     try {
