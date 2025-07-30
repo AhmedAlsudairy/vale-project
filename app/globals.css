@@ -6,6 +6,61 @@
   .text-balance {
     text-wrap: balance;
   }
+  
+  /* Custom scrollbar styles */
+  .horizontal-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: rgb(147 197 253) rgb(219 234 254);
+  }
+  
+  .horizontal-scroll::-webkit-scrollbar {
+    height: 8px;
+  }
+  
+  .horizontal-scroll::-webkit-scrollbar-track {
+    background: rgb(219 234 254);
+    border-radius: 10px;
+  }
+  
+  .horizontal-scroll::-webkit-scrollbar-thumb {
+    background: rgb(147 197 253);
+    border-radius: 10px;
+  }
+  
+  .horizontal-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgb(59 130 246);
+  }
+  
+  .scrollbar-thin {
+    scrollbar-width: thin;
+  }
+  
+  .scrollbar-thumb-blue-300::-webkit-scrollbar-thumb {
+    background-color: rgb(147 197 253);
+    border-radius: 9999px;
+  }
+  
+  .scrollbar-track-blue-100::-webkit-scrollbar-track {
+    background-color: rgb(219 234 254);
+    border-radius: 9999px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background-color: rgb(156 163 175);
+    border-radius: 9999px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background-color: rgb(229 231 235);
+    border-radius: 9999px;
+  }
 }
 
 @layer base {

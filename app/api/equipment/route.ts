@@ -57,6 +57,61 @@ const mockEquipment = [
     installationDate: null,
     createdAt: "2024-01-01T00:00:00Z",
   },
+  // LRS Equipment
+  {
+    id: 7,
+    tagNo: "LRS-01",
+    equipmentName: "Liquid Resistor Starter Unit 1",
+    equipmentType: "Liquid Resistor Starter",
+    location: "Main Plant",
+    installationDate: null,
+    createdAt: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: 8,
+    tagNo: "LRS-02",
+    equipmentName: "Liquid Resistor Starter Unit 2",
+    equipmentType: "Liquid Resistor Starter",
+    location: "Main Plant",
+    installationDate: null,
+    createdAt: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: 9,
+    tagNo: "CT-01",
+    equipmentName: "Main Contactor Unit 1",
+    equipmentType: "Contactor",
+    location: "Control Room",
+    installationDate: null,
+    createdAt: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: 10,
+    tagNo: "CT-02",
+    equipmentName: "Backup Contactor Unit",
+    equipmentType: "Contactor",
+    location: "Control Room",
+    installationDate: null,
+    createdAt: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: 11,
+    tagNo: "CF-01",
+    equipmentName: "Primary Cooler Fan",
+    equipmentType: "Cooler Fan",
+    location: "Cooling Section",
+    installationDate: null,
+    createdAt: "2024-01-01T00:00:00Z",
+  },
+  {
+    id: 12,
+    tagNo: "CF-02",
+    equipmentName: "Secondary Cooler Fan",
+    equipmentType: "Cooler Fan",
+    location: "Cooling Section",
+    installationDate: null,
+    createdAt: "2024-01-01T00:00:00Z",
+  },
 ]
 
 export async function GET() {
@@ -80,7 +135,7 @@ export async function GET() {
 
     // Transform the equipment data to include counts
     const equipmentWithCounts = await Promise.all(equipment.map(async (item) => {
-      // Also count ESP thermography sessions for this equipment
+      // Count ESP thermography sessions for this equipment
       let espSessionsCount = 0
       try {
         espSessionsCount = await prisma.espThermographySession.count({
@@ -91,11 +146,22 @@ export async function GET() {
         console.log("ESP sessions not available for counting")
       }
 
+      // Count LRS thermography sessions for this equipment
+      let lrsSessionsCount = 0
+      try {
+        lrsSessionsCount = await prisma.lrsThermographySession.count({
+          where: { tagNumber: item.tagNo }
+        })
+      } catch (error) {
+        // LRS sessions table might not exist
+        console.log("LRS sessions not available for counting")
+      }
+
       return {
         ...item,
         carbonBrushCount: item._count.carbonBrushRecords,
         windingResistanceCount: item._count.windingResistanceRecords,
-        thermographyRecordsCount: item._count.thermographyRecords + espSessionsCount,
+        thermographyRecordsCount: item._count.thermographyRecords + espSessionsCount + lrsSessionsCount,
       }
     }))
 
@@ -107,7 +173,10 @@ export async function GET() {
       ...item,
       carbonBrushCount: 0,
       windingResistanceCount: 0,
-      thermographyRecordsCount: item.equipmentType.includes('ESP') ? 1 : 0,
+      thermographyRecordsCount: item.equipmentType.includes('ESP') ? 1 : 
+                                item.equipmentType.includes('LRS') || 
+                                item.equipmentType.includes('Contactor') || 
+                                item.equipmentType.includes('Cooler Fan') ? 0 : 0,
     }))
     return NextResponse.json(mockEquipmentWithCounts)
   }
@@ -119,16 +188,31 @@ export async function POST(request: NextRequest) {
     const { generateQRFromData } = await import("@/lib/qr-utils")
 
     const body = await request.json()
-    const { tag_no, equipment_name, equipment_type, location, installation_date } = body
+    console.log('Received equipment data:', body)
+    
+    // Handle both old and new field formats
+    const tagNo = body.tagNo || body.tag_no
+    const equipmentName = body.equipmentName || body.equipment_name
+    const equipmentType = body.equipmentType || body.equipment_type
+    const location = body.location || ''
+    const installationDate = body.installDate || body.installation_date
+
+    // Validate required fields
+    if (!tagNo) {
+      return NextResponse.json(
+        { error: 'Tag number is required' },
+        { status: 400 }
+      )
+    }
 
     // Create equipment first
     const equipment = await prisma.equipmentMaster.create({
       data: {
-        tagNo: tag_no,
-        equipmentName: equipment_name,
-        equipmentType: equipment_type,
+        tagNo,
+        equipmentName: equipmentName || tagNo,
+        equipmentType: equipmentType || 'General',
         location,
-        installationDate: installation_date ? new Date(installation_date) : null,
+        installationDate: installationDate ? new Date(installationDate) : null,
       },
     })
 
@@ -153,18 +237,27 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Database error:", error)
 
-    // Return mock success response
-    const body = await request.json()
-    const mockEquipment = {
-      id: Date.now(),
-      tagNo: body.tag_no,
-      equipmentName: body.equipment_name,
-      equipmentType: body.equipment_type,
-      location: body.location,
-      installationDate: body.installation_date ? new Date(body.installation_date) : null,
-      createdAt: new Date().toISOString(),
-    }
+    // Return mock success response without re-reading body
+    try {
+      const mockEquipment = {
+        id: Date.now(),
+        tagNo: "MOCK-" + Date.now(),
+        equipmentName: "Mock Equipment",
+        equipmentType: "General",
+        location: "",
+        installationDate: null,
+        qrCode: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
 
-    return NextResponse.json(mockEquipment)
+      return NextResponse.json(mockEquipment)
+    } catch (mockError) {
+      console.error("Mock creation error:", mockError)
+      return NextResponse.json(
+        { error: 'Failed to create equipment' },
+        { status: 500 }
+      )
+    }
   }
 }

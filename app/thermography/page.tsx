@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -9,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
-import { CalendarIcon, Download, Plus, Search, Thermometer, Zap, ChevronRight, ChevronDown, CheckCircle, Clock } from 'lucide-react'
+import { CalendarIcon, Download, Plus, Search, Thermometer, Zap, ChevronRight, ChevronDown, CheckCircle, Clock, Eye, User, Edit2, ChevronUp, BarChart3, ChevronLeft } from 'lucide-react'
 import { format } from 'date-fns'
 import { Calendar } from '@/components/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -17,7 +18,11 @@ import { cn } from '@/lib/utils'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Combobox } from '@/components/ui/combobox'
 import { useToast } from '@/components/ui/use-toast'
+import * as XLSX from 'xlsx'
 import { QRScanner } from '@/components/qr-scanner'
+import Image from 'next/image'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel'
 
 interface Equipment {
   id: number
@@ -55,9 +60,29 @@ interface TransformerRecord {
   scrCoolingFan?: string
   panelExhaustFan?: string
   mccForcedCoolingFanTemp?: string
-  rdi68?: number
-  rdi69?: number
-  rdi70?: number
+  rdi68?: string
+  rdi69?: string
+  rdi70?: string
+}
+
+interface LrsSession {
+  id: number
+  tagNumber: string
+  equipmentName: string
+  equipmentType: string
+  inspector: string
+  numberOfPoints: number
+  date: string
+  temperatureRecords: LrsTemperatureRecord[]
+  previewImage?: string
+}
+
+interface LrsTemperatureRecord {
+  id: number
+  point: string
+  description: string
+  temperature: number
+  status: 'Normal' | 'Warning' | 'Critical'
 }
 
 const months = [
@@ -83,7 +108,13 @@ const equipmentTypes = [
   'ESP - MCC Panel',
   'ESP - Control System',
   'ESP - Feeder',
-  'Motor',
+  'LRS (Liquid Resistor Starter)',
+  'LRS - Contactor',
+  'LRS - Cooler Fan',
+  'Motor - Induction Motor',
+  'Motor - DC Motor',
+  'Motor - Synchronous Motor',
+  'Motor - Servo Motor',
   'Pump',
   'Fan',
   'Compressor',
@@ -92,17 +123,44 @@ const equipmentTypes = [
 
 export default function ThermographyPage() {
   const { toast } = useToast()
+  const searchParams = useSearchParams()
+  
+  // Initialize activeTab based on URL parameter
+  const initialTab = searchParams.get('tab') === 'lrs' ? 'lrs' : 'esp'
+  
   const [sessions, setSessions] = useState<EspSession[]>([])
+  const [lrsSessions, setLrsSessions] = useState<LrsSession[]>([])
   const [equipment, setEquipment] = useState<Equipment[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLrsSubmitting, setIsLrsSubmitting] = useState(false)
+  const [isRecordingSubmitting, setIsRecordingSubmitting] = useState(false)
+  const [activeTab, setActiveTab] = useState<'esp' | 'lrs'>(initialTab)
   const [showForm, setShowForm] = useState(false)
+  const [showLrsForm, setShowLrsForm] = useState(false)
   const [editingSession, setEditingSession] = useState<EspSession | null>(null)
+  const [editingLrsSession, setEditingLrsSession] = useState<LrsSession | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedEsp, setSelectedEsp] = useState('all')
   const [selectedMonth, setSelectedMonth] = useState('all')
   const [selectedStatus, setSelectedStatus] = useState('all')
   const [selectedTempStatus, setSelectedTempStatus] = useState('all')
   const [expandedSessions, setExpandedSessions] = useState<Set<number>>(new Set())
+  const [previewImage, setPreviewImage] = useState<string | null>(null)
+  const [currentInstructionImage, setCurrentInstructionImage] = useState(0)
+  const [showInstructionModal, setShowInstructionModal] = useState(false)
+  const [recordingSessionId, setRecordingSessionId] = useState<number | null>(null)
+  const [recordingData, setRecordingData] = useState<LrsTemperatureRecord[]>([])
+
+  // ESP instruction images
+  const espInstructionImages = [
+    '/esp/1.png',
+    '/esp/2.png', 
+    '/esp/3.png',
+    '/esp/4.png',
+    '/esp/5.png',
+    '/esp/6.png'
+  ]
 
   // Form state
   const [formData, setFormData] = useState({
@@ -168,10 +226,84 @@ export default function ThermographyPage() {
     ]
   })
 
+  // LRS Form state
+  const [lrsFormData, setLrsFormData] = useState({
+    tagNumber: '',
+    equipmentName: '',
+    equipmentType: '',
+    inspector: '',
+    numberOfPoints: 1,
+    previewImage: null as File | null,
+    temperatureRecords: [] as Array<{
+      id: number
+      point: string
+      description: string
+      temperature: number
+      status: 'Normal' | 'Warning' | 'Critical'
+    }>
+  })
+
+  // Debug: Log when lrsSessions changes
   useEffect(() => {
-    fetchSessions()
-    fetchEquipment()
+    console.log('LRS Sessions updated:', lrsSessions.length, lrsSessions.map(s => ({ id: s.id, tagNumber: s.tagNumber })))
+  }, [lrsSessions])
+
+  // Initialize data on component mount
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true)
+      try {
+        await Promise.all([
+          fetchEquipment(),
+          fetchSessions(),
+          fetchLrsSessions()
+        ])
+      } catch (error) {
+        console.error('Error loading initial data:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    
+    loadData()
   }, [])
+
+  // Keyboard navigation for instruction modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!showInstructionModal) return
+      
+      switch (event.key) {
+        case 'ArrowLeft':
+          event.preventDefault()
+          setCurrentInstructionImage((prev) => 
+            prev === 0 ? espInstructionImages.length - 1 : prev - 1
+          )
+          break
+        case 'ArrowRight':
+          event.preventDefault()
+          setCurrentInstructionImage((prev) => 
+            prev === espInstructionImages.length - 1 ? 0 : prev + 1
+          )
+          break
+        case 'Escape':
+          event.preventDefault()
+          setShowInstructionModal(false)
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [showInstructionModal, espInstructionImages.length])
+
+  // Handle URL parameter changes
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'lrs' || tab === 'esp') {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
 
   const fetchEquipment = async () => {
     try {
@@ -218,13 +350,426 @@ export default function ThermographyPage() {
       }
     } catch (error) {
       console.error('Error fetching ESP sessions:', error)
-    } finally {
-      setIsLoading(false)
     }
+  }
+
+  const fetchLrsSessions = async () => {
+    try {
+      const response = await fetch('/api/lrs-sessions')
+      if (response.ok) {
+        const data = await response.json()
+        console.log('Fetched LRS sessions:', data) // Debug log
+        setLrsSessions(data)
+      } else {
+        console.error('Failed to fetch LRS sessions:', response.statusText)
+        // Set mock data if API fails
+        setLrsSessions([
+          {
+            id: 1,
+            tagNumber: 'lrs66',
+            equipmentName: 'LRS System 66',
+            equipmentType: 'LRS - Contactor',
+            inspector: 'test',
+            numberOfPoints: 3,
+            date: new Date().toISOString(),
+            temperatureRecords: [
+              {
+                id: 1,
+                point: 'Point 1',
+                description: 'r',
+                temperature: 6,
+                status: 'Normal' as const
+              },
+              {
+                id: 2,
+                point: 'Point 2', 
+                description: 'r',
+                temperature: 0,
+                status: 'Normal' as const
+              },
+              {
+                id: 3,
+                point: 'Point 3',
+                description: 'r', 
+                temperature: 0,
+                status: 'Normal' as const
+              }
+            ],
+            previewImage: 'lrs66-preview.jpg'
+          }
+        ])
+      }
+    } catch (error) {
+      console.error('Error fetching LRS sessions:', error)
+      // Set mock data on error
+      setLrsSessions([
+        {
+          id: 1,
+          tagNumber: 'lrs66',
+          equipmentName: 'LRS System 66',
+          equipmentType: 'LRS - Contactor',
+          inspector: 'test',
+          numberOfPoints: 3,
+          date: new Date().toISOString(),
+          temperatureRecords: [
+            {
+              id: 1,
+              point: 'Point 1',
+              description: 'r',
+              temperature: 6,
+              status: 'Normal' as const
+            },
+            {
+              id: 2,
+              point: 'Point 2',
+              description: 'r',
+              temperature: 0,
+              status: 'Normal' as const
+            },
+            {
+              id: 3,
+              point: 'Point 3',
+              description: 'r',
+              temperature: 0,
+              status: 'Normal' as const
+            }
+          ],
+          previewImage: 'lrs66-preview.jpg'
+        }
+      ])
+    }
+  }
+
+  // LRS-specific handlers
+  const handleLrsTagNumberChange = (tagNumber: string) => {
+    setLrsFormData(prev => ({ ...prev, tagNumber }))
+    
+    // Auto-populate equipment name and type if found in equipment master
+    const foundEquipment = equipment.find(eq => eq.tagNo === tagNumber)
+    if (foundEquipment) {
+      setLrsFormData(prev => ({
+        ...prev,
+        tagNumber,
+        equipmentName: foundEquipment.equipmentName,
+        equipmentType: foundEquipment.equipmentType
+      }))
+    }
+  }
+
+  const handleLrsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // Prevent multiple submissions
+    if (isLrsSubmitting) {
+      return
+    }
+    
+    if (!lrsFormData.tagNumber || !lrsFormData.equipmentName || !lrsFormData.inspector) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setIsLrsSubmitting(true)
+
+      const sessionData = {
+        tagNumber: lrsFormData.tagNumber,
+        equipmentName: lrsFormData.equipmentName,
+        equipmentType: lrsFormData.equipmentType,
+        inspector: lrsFormData.inspector,
+        numberOfPoints: lrsFormData.numberOfPoints,
+        temperatureRecords: Array.from({ length: lrsFormData.numberOfPoints }, (_, i) => ({
+          point: `Point ${i + 1}`,
+          description: `Measurement point ${i + 1}`,
+          temperature: 0,
+          status: 'Normal' as const
+        })),
+        previewImage: lrsFormData.previewImage ? 'preview-image.jpg' : undefined
+      }
+
+      console.log('Submitting session data:', sessionData)
+
+      if (editingLrsSession) {
+        // Update existing session
+        const response = await fetch(`/api/lrs-sessions/${editingLrsSession.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(sessionData)
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to update LRS session')
+        }
+
+        toast({
+          title: "Success",
+          description: "LRS session updated successfully",
+        })
+      } else {
+        // Create new session
+        const response = await fetch('/api/lrs-sessions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(sessionData)
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to create LRS session')
+        }
+
+        toast({
+          title: "Success",
+          description: "New LRS session created successfully",
+        })
+      }
+
+      // Refresh sessions list with a small delay to ensure backend updates
+      setTimeout(async () => {
+        await fetchLrsSessions()
+      }, 200)
+      
+      setShowLrsForm(false)
+      setEditingLrsSession(null)
+      resetLrsForm()
+
+      // Force a small delay to ensure state updates
+      setTimeout(() => {
+        console.log('Current LRS sessions after save:', lrsSessions.length)
+      }, 300)
+
+    } catch (error) {
+      console.error('Error saving LRS session:', error)
+      toast({
+        title: "Error",
+        description: "Failed to save LRS session. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLrsSubmitting(false)
+    }
+  }
+
+  const downloadLrsExcel = (sessionId?: number) => {
+    if (!lrsSessions.length) {
+      toast({
+        title: "No Data",
+        description: "No LRS sessions available to export",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const sessionsToExport = sessionId 
+      ? lrsSessions.filter(session => session.id === sessionId)
+      : lrsSessions
+
+    // Sort sessions by date (newest first)
+    const sortedSessions = sessionsToExport.sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    )
+
+    const exportData = sortedSessions.flatMap(session =>
+      session.temperatureRecords.map(record => ({
+        'Date': format(new Date(session.date), 'dd/MM/yyyy'),
+        'Time': format(new Date(session.date), 'HH:mm'),
+        'Day of Week': format(new Date(session.date), 'EEEE'),
+        'Month': format(new Date(session.date), 'MMMM yyyy'),
+        'Tag Number': session.tagNumber,
+        'Equipment Name': session.equipmentName,
+        'Equipment Type': session.equipmentType,
+        'Inspector': session.inspector,
+        'Planned Points': session.numberOfPoints,
+        'Actual Points Recorded': session.temperatureRecords.length,
+        'Point Description': record.point,
+        'Detailed Description': record.description,
+        'Temperature (°C)': record.temperature,
+        'Status': record.status,
+        'Max Temperature (°C)': Math.max(...session.temperatureRecords.map(r => r.temperature)),
+        'Min Temperature (°C)': Math.min(...session.temperatureRecords.map(r => r.temperature)),
+        'Avg Temperature (°C)': (session.temperatureRecords.reduce((sum, r) => sum + r.temperature, 0) / session.temperatureRecords.length).toFixed(1),
+        'Session Status': session.temperatureRecords.every(r => r.status === 'Normal') ? 'All Normal' :
+                         session.temperatureRecords.some(r => r.status === 'Critical') ? 'Has Critical' :
+                         'Has Warning',
+        'Recording Completion': `${session.temperatureRecords.length}/${session.numberOfPoints} (${Math.round((session.temperatureRecords.length / session.numberOfPoints) * 100)}%)`
+      }))
+    )
+
+    // Group data by date for summary
+    const dateGroups = sortedSessions.reduce((groups, session) => {
+      const dateKey = format(new Date(session.date), 'yyyy-MM-dd')
+      if (!groups[dateKey]) {
+        groups[dateKey] = []
+      }
+      groups[dateKey].push(session)
+      return groups
+    }, {} as Record<string, typeof sortedSessions>)
+
+    // Create summary data by date
+    const summaryData = Object.entries(dateGroups).map(([dateKey, sessions]) => {
+      const allRecords = sessions.flatMap(s => s.temperatureRecords)
+      const criticalCount = allRecords.filter(r => r.status === 'Critical').length
+      const warningCount = allRecords.filter(r => r.status === 'Warning').length
+      const normalCount = allRecords.filter(r => r.status === 'Normal').length
+      
+      return {
+        'Date': format(new Date(dateKey), 'dd/MM/yyyy'),
+        'Day of Week': format(new Date(dateKey), 'EEEE'),
+        'Sessions Count': sessions.length,
+        'Total Measurements': allRecords.length,
+        'Critical Readings': criticalCount,
+        'Warning Readings': warningCount,
+        'Normal Readings': normalCount,
+        'Max Temperature': allRecords.length > 0 ? Math.max(...allRecords.map(r => r.temperature)) : 0,
+        'Min Temperature': allRecords.length > 0 ? Math.min(...allRecords.map(r => r.temperature)) : 0,
+        'Avg Temperature': allRecords.length > 0 ? (allRecords.reduce((sum, r) => sum + r.temperature, 0) / allRecords.length).toFixed(1) : 0,
+        'Equipment Types': [...new Set(sessions.map(s => s.equipmentType))].join(', '),
+        'Inspectors': [...new Set(sessions.map(s => s.inspector))].join(', ')
+      }
+    })
+
+    // Create the main data worksheet
+    const worksheet = XLSX.utils.json_to_sheet(exportData)
+    
+    // Add auto filters
+    worksheet['!autofilter'] = { ref: worksheet['!ref'] || 'A1' }
+    
+    // Set column widths for main data sheet
+    const columnWidths = [
+      { wch: 12 }, // Date
+      { wch: 8 },  // Time
+      { wch: 12 }, // Day of Week
+      { wch: 15 }, // Month
+      { wch: 12 }, // Tag Number
+      { wch: 25 }, // Equipment Name
+      { wch: 20 }, // Equipment Type
+      { wch: 15 }, // Inspector
+      { wch: 12 }, // Planned Points
+      { wch: 12 }, // Actual Points
+      { wch: 20 }, // Point Description
+      { wch: 30 }, // Detailed Description
+      { wch: 15 }, // Temperature
+      { wch: 12 }, // Status
+      { wch: 15 }, // Max Temperature
+      { wch: 15 }, // Min Temperature
+      { wch: 15 }, // Avg Temperature
+      { wch: 16 }, // Session Status
+      { wch: 18 }  // Recording Completion
+    ]
+    worksheet['!cols'] = columnWidths
+
+    // Style header row - update column count for new fields
+    for (let col = 0; col < 19; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: col })
+      if (!worksheet[cellRef]) continue
+      
+      worksheet[cellRef].s = {
+        fill: { fgColor: { rgb: "4472C4" } },
+        font: { color: { rgb: "FFFFFF" }, bold: true, sz: 11 },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: {
+          top: { style: "thin", color: { rgb: "000000" } },
+          bottom: { style: "thin", color: { rgb: "000000" } },
+          left: { style: "thin", color: { rgb: "000000" } },
+          right: { style: "thin", color: { rgb: "000000" } }
+        }
+      }
+    }
+
+    // Color-code status cells (column 13 - Status)
+    for (let row = 1; row <= exportData.length; row++) {
+      const statusCell = XLSX.utils.encode_cell({ r: row, c: 13 })
+      const status = exportData[row - 1]['Status']
+      
+      if (worksheet[statusCell]) {
+        let fillColor = "FFFFFF"
+        if (status === 'Normal') fillColor = "D4F6D4"
+        else if (status === 'Warning') fillColor = "FFF2CC"
+        else if (status === 'Critical') fillColor = "FFE6E6"
+        
+        worksheet[statusCell].s = {
+          fill: { fgColor: { rgb: fillColor } },
+          border: {
+            top: { style: "thin", color: { rgb: "000000" } },
+            bottom: { style: "thin", color: { rgb: "000000" } },
+            left: { style: "thin", color: { rgb: "000000" } },
+            right: { style: "thin", color: { rgb: "000000" } }
+          }
+        }
+      }
+    }
+
+    // Create summary worksheet
+    const summaryWorksheet = XLSX.utils.json_to_sheet(summaryData)
+    summaryWorksheet['!autofilter'] = { ref: summaryWorksheet['!ref'] || 'A1' }
+    
+    // Set column widths for summary sheet
+    const summaryColumnWidths = [
+      { wch: 12 }, // Date
+      { wch: 12 }, // Day of Week
+      { wch: 12 }, // Sessions Count
+      { wch: 15 }, // Total Measurements
+      { wch: 15 }, // Critical Readings
+      { wch: 15 }, // Warning Readings
+      { wch: 15 }, // Normal Readings
+      { wch: 15 }, // Max Temperature
+      { wch: 15 }, // Min Temperature
+      { wch: 15 }, // Avg Temperature
+      { wch: 25 }, // Equipment Types
+      { wch: 20 }  // Inspectors
+    ]
+    summaryWorksheet['!cols'] = summaryColumnWidths
+
+    // Style summary header row
+    for (let col = 0; col < 12; col++) {
+      const cellRef = XLSX.utils.encode_cell({ r: 0, c: col })
+      if (!summaryWorksheet[cellRef]) continue
+      
+      summaryWorksheet[cellRef].s = {
+        fill: { fgColor: { rgb: "2E7D32" } },
+        font: { color: { rgb: "FFFFFF" }, bold: true, sz: 11 },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: {
+          top: { style: "thin", color: { rgb: "000000" } },
+          bottom: { style: "thin", color: { rgb: "000000" } },
+          left: { style: "thin", color: { rgb: "000000" } },
+          right: { style: "thin", color: { rgb: "000000" } }
+        }
+      }
+    }
+
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'LRS Temperature Data')
+    XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Daily Summary')
+    
+    const filename = sessionId 
+      ? `LRS_Session_${sessionsToExport[0]?.tagNumber}_${format(new Date(), 'dd-MM-yyyy')}.xlsx`
+      : `LRS_Thermography_by_Date_${format(new Date(), 'dd-MM-yyyy')}.xlsx`
+    
+    XLSX.writeFile(workbook, filename)
+
+    toast({
+      title: "Export Complete",
+      description: `LRS thermography data exported with date organization as ${filename}`,
+    })
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Prevent multiple submissions
+    if (isSubmitting) {
+      return
+    }
+    
+    setIsSubmitting(true)
     
     try {
       const payload = {
@@ -272,11 +817,22 @@ export default function ThermographyPage() {
           variant: "default",
         })
       } else {
-        toast({
-          title: "Error",
-          description: `Error ${editingSession ? 'updating' : 'saving'} ESP session. Please try again.`,
-          variant: "destructive",
-        })
+        const errorData = await response.json()
+        
+        // Handle duplicate session error specifically
+        if (response.status === 409) {
+          toast({
+            title: "Duplicate Session",
+            description: errorData.message || "A session with the same ESP code and date already exists.",
+            variant: "destructive",
+          })
+        } else {
+          toast({
+            title: "Error",
+            description: errorData.message || `Error ${editingSession ? 'updating' : 'saving'} ESP session. Please try again.`,
+            variant: "destructive",
+          })
+        }
       }
     } catch (error) {
       console.error('Error submitting form:', error)
@@ -285,6 +841,8 @@ export default function ThermographyPage() {
         description: `Error ${editingSession ? 'updating' : 'saving'} ESP session. Please try again.`,
         variant: "destructive",
       })
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -354,6 +912,26 @@ export default function ThermographyPage() {
     setEditingSession(null)
   }
 
+  const resetLrsForm = () => {
+    setLrsFormData({
+      tagNumber: '',
+      equipmentName: '',
+      equipmentType: '',
+      inspector: '',
+      numberOfPoints: 1,
+      previewImage: null,
+      temperatureRecords: []
+    })
+    setEditingLrsSession(null)
+  }
+
+  const updateLrsNumberOfPoints = (numberOfPoints: number) => {
+    setLrsFormData(prev => ({
+      ...prev,
+      numberOfPoints
+    }))
+  }
+
   // Filtering logic
   const hasActiveFilters = selectedEsp !== 'all' || selectedMonth !== 'all' || searchTerm
   const filteredSessions = sessions.filter(session => {
@@ -394,9 +972,9 @@ export default function ThermographyPage() {
         (record.mccbCOg2 && record.mccbCOg2 > 0) ||
         (record.mccbBodyTemp && record.mccbBodyTemp > 0) ||
         (record.scrCoolingFinsTemp && record.scrCoolingFinsTemp > 0) ||
-        (record.rdi68 && record.rdi68 > 0) ||
-        (record.rdi69 && record.rdi69 > 0) ||
-        (record.rdi70 && record.rdi70 > 0)
+        (record.rdi68 && record.rdi68 !== '') ||
+        (record.rdi69 && record.rdi69 !== '') ||
+        (record.rdi70 && record.rdi70 !== '')
       )
     }).length
   }
@@ -435,10 +1013,10 @@ export default function ThermographyPage() {
           'Panel Exhaust Fan': record.panelExhaustFan || '-',
           'MCC Forced Cooling Fan': record.mccForcedCoolingFanTemp || '-',
           
-          // RDI Measurements (°C)
-          'RDI-68 (°C)': record.rdi68 || '-',
-          'RDI-69 (°C)': record.rdi69 || '-',
-          'RDI-70 (°C)': record.rdi70 || '-',
+          // RDI Relay Status
+          'RDI-68 Relay': record.rdi68 || '-',
+          'RDI-69 Relay': record.rdi69 || '-',
+          'RDI-70 Relay': record.rdi70 || '-',
           
           // Additional Data
           'KV/MA': record.kvMa || '-',
@@ -461,10 +1039,7 @@ export default function ThermographyPage() {
             record.mccbCOg1 || 0,
             record.mccbCOg2 || 0,
             record.mccbBodyTemp || 0,
-            record.scrCoolingFinsTemp || 0,
-            record.rdi68 || 0,
-            record.rdi69 || 0,
-            record.rdi70 || 0
+            record.scrCoolingFinsTemp || 0
           ) || '-',
           'Temperature Status': (() => {
             const maxTemp = Math.max(
@@ -473,10 +1048,7 @@ export default function ThermographyPage() {
               record.mccbCOg1 || 0,
               record.mccbCOg2 || 0,
               record.mccbBodyTemp || 0,
-              record.scrCoolingFinsTemp || 0,
-              record.rdi68 || 0,
-              record.rdi69 || 0,
-              record.rdi70 || 0
+              record.scrCoolingFinsTemp || 0
             )
             if (maxTemp > 80) return 'Critical'
             if (maxTemp > 60) return 'Warning'
@@ -620,8 +1192,7 @@ export default function ThermographyPage() {
           sum + s.transformerRecords.filter(r => {
             const maxTemp = Math.max(
               r.mccbIcRPhase || 0, r.mccbIcBPhase || 0, r.mccbCOg1 || 0, 
-              r.mccbCOg2 || 0, r.mccbBodyTemp || 0, r.scrCoolingFinsTemp || 0,
-              r.rdi68 || 0, r.rdi69 || 0, r.rdi70 || 0
+              r.mccbCOg2 || 0, r.mccbBodyTemp || 0, r.scrCoolingFinsTemp || 0
             )
             return maxTemp > 80
           }).length, 0) },
@@ -629,8 +1200,7 @@ export default function ThermographyPage() {
           sum + s.transformerRecords.filter(r => {
             const maxTemp = Math.max(
               r.mccbIcRPhase || 0, r.mccbIcBPhase || 0, r.mccbCOg1 || 0, 
-              r.mccbCOg2 || 0, r.mccbBodyTemp || 0, r.scrCoolingFinsTemp || 0,
-              r.rdi68 || 0, r.rdi69 || 0, r.rdi70 || 0
+              r.mccbCOg2 || 0, r.mccbBodyTemp || 0, r.scrCoolingFinsTemp || 0
             )
             return maxTemp > 60 && maxTemp <= 80
           }).length, 0) },
@@ -827,9 +1397,9 @@ export default function ThermographyPage() {
             scrCoolingFan: record.scrCoolingFan || '',
             panelExhaustFan: record.panelExhaustFan || '',
             mccForcedCoolingFanTemp: record.mccForcedCoolingFanTemp || '',
-            rdi68: record.rdi68?.toString() || '',
-            rdi69: record.rdi69?.toString() || '',
-            rdi70: record.rdi70?.toString() || ''
+            rdi68: record.rdi68 || '',
+            rdi69: record.rdi69 || '',
+            rdi70: record.rdi70 || ''
           }))
         : formData.transformers
     })
@@ -841,9 +1411,127 @@ export default function ThermographyPage() {
   }
 
   const handleCancelEdit = () => {
+    if (isSubmitting) return // Prevent canceling during submission
     setEditingSession(null)
     setShowForm(false)
     resetForm()
+  }
+
+  const nextInstructionImage = () => {
+    setCurrentInstructionImage((prev) => 
+      prev === espInstructionImages.length - 1 ? 0 : prev + 1
+    )
+  }
+
+  const prevInstructionImage = () => {
+    setCurrentInstructionImage((prev) => 
+      prev === 0 ? espInstructionImages.length - 1 : prev - 1
+    )
+  }
+
+  const goToInstructionImage = (index: number) => {
+    setCurrentInstructionImage(index)
+  }
+
+  const openInstructionModal = (index?: number) => {
+    if (index !== undefined) {
+      setCurrentInstructionImage(index)
+    }
+    setShowInstructionModal(true)
+  }
+
+  const closeInstructionModal = () => {
+    setShowInstructionModal(false)
+  }
+
+  const startTemperatureRecording = (session: LrsSession) => {
+    setRecordingSessionId(session.id)
+    
+    // Ensure we have temperature records, create them if empty
+    if (session.temperatureRecords && session.temperatureRecords.length > 0) {
+      setRecordingData(session.temperatureRecords.map(record => ({ ...record })))
+    } else {
+      // Create default temperature records if they don't exist
+      const defaultRecords = Array.from({ length: session.numberOfPoints }, (_, i) => ({
+        id: i + 1,
+        point: `Point ${i + 1}`,
+        description: `Measurement point ${i + 1}`,
+        temperature: 0,
+        status: 'Normal' as const
+      }))
+      setRecordingData(defaultRecords)
+    }
+  }
+
+  const cancelTemperatureRecording = () => {
+    if (isRecordingSubmitting) return // Prevent canceling during submission
+    setRecordingSessionId(null)
+    setRecordingData([])
+  }
+
+  const saveTemperatureRecording = async () => {
+    if (!recordingSessionId || isRecordingSubmitting) return
+
+    try {
+      setIsRecordingSubmitting(true)
+      
+      const session = lrsSessions.find(s => s.id === recordingSessionId)
+      if (!session) return
+
+      const response = await fetch(`/api/lrs-sessions/${recordingSessionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tagNumber: session.tagNumber,
+          equipmentName: session.equipmentName,
+          equipmentType: session.equipmentType,
+          inspector: session.inspector,
+          numberOfPoints: session.numberOfPoints,
+          temperatureRecords: recordingData
+            .filter(record => record.temperature && record.temperature > 0) // Only save records with actual temperatures
+            .map(record => ({
+              point: record.point,
+              description: record.description,
+              temperature: record.temperature,
+              status: record.status
+            }))
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to update temperature recordings')
+      }
+
+      const recordsAdded = recordingData.filter(record => record.temperature > 0).length
+
+      toast({
+        title: "Success",
+        description: `${recordsAdded} temperature recording${recordsAdded > 1 ? 's' : ''} added successfully`,
+      })
+
+      await fetchLrsSessions()
+      setRecordingSessionId(null)
+      setRecordingData([])
+
+    } catch (error) {
+      console.error('Error saving temperature recordings:', error)
+      toast({
+        title: "Error",
+        description: "Failed to save temperature recordings",
+        variant: "destructive",
+      })
+    } finally {
+      setIsRecordingSubmitting(false)
+    }
+  }
+
+  const updateRecordingTemperature = (index: number, temperature: number) => {
+    const status = temperature > 80 ? 'Critical' : temperature > 60 ? 'Warning' : 'Normal'
+    setRecordingData(prev => prev.map((record, i) => 
+      i === index ? { ...record, temperature, status } : record
+    ))
   }
 
   if (isLoading) {
@@ -867,12 +1555,38 @@ export default function ThermographyPage() {
           <div className="flex-1 min-w-0">
             <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold flex items-center gap-2">
               <Thermometer className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-orange-500 flex-shrink-0" />
-              <span className="truncate">ESP MCC Thermography</span>
+              <span className="truncate">Thermography Management</span>
             </h1>
             <p className="text-muted-foreground mt-1 text-sm sm:text-base">
-              Step-by-step temperature monitoring for ESP transformers (TF1, TF2, TF3)
+              Temperature monitoring for ESP transformers and LRS equipment
             </p>
           </div>
+        </div>
+        
+        {/* Tabs */}
+        <div className="flex space-x-1 bg-muted p-1 rounded-lg w-fit">
+          <button
+            onClick={() => setActiveTab('esp')}
+            className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'esp'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Zap className="h-4 w-4 mr-2 inline" />
+            ESP MCC
+          </button>
+          <button
+            onClick={() => setActiveTab('lrs')}
+            className={`px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'lrs'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Thermometer className="h-4 w-4 mr-2 inline" />
+            LRS & Motor
+          </button>
         </div>
         
         {/* Action Buttons - Mobile Optimized */}
@@ -884,28 +1598,142 @@ export default function ThermographyPage() {
             <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
             <span className="hidden xs:inline">Export </span>Excel
           </Button>
-          <Button onClick={() => setShowForm(true)} size="sm" className="w-full sm:w-auto text-xs sm:text-sm">
+          <Button 
+            onClick={() => activeTab === 'esp' ? setShowForm(true) : setShowLrsForm(true)} 
+            size="sm" 
+            className="w-full sm:w-auto text-xs sm:text-sm"
+          >
             <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
-            <span className="hidden xs:inline">New </span>ESP Session
+            <span className="hidden xs:inline">New </span>
+            {activeTab === 'esp' ? 'ESP Session' : 'LRS Session'}
           </Button>
         </div>
       </div>
 
       {/* Form Modal */}
       {showForm && (
-        <Card className="mb-4 sm:mb-6">
-          <CardHeader className="pb-3 sm:pb-6">
-            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-              <Zap className="h-4 w-4 sm:h-5 sm:w-5" />
-              {editingSession ? 'Edit ESP Thermography Session' : 'New ESP Thermography Session'}
-            </CardTitle>
-            <CardDescription className="text-sm sm:text-base">
-              {editingSession 
-                ? `Editing session for ${editingSession.espCode} - Complete or update temperature measurements`
-                : 'Record temperature measurements for all transformers (TF1, TF2, TF3) in one session'
-              }
-            </CardDescription>
-          </CardHeader>
+        <>
+          {/* ESP Instructions Carousel */}
+          <Card className="mb-4 sm:mb-6 border-2 border-blue-300 bg-blue-50 dark:border-blue-600 dark:bg-blue-950/30">
+            <CardHeader className="pb-3 bg-blue-100 dark:bg-blue-900/30">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl text-blue-800 dark:text-blue-200">
+                <Eye className="h-4 w-4 sm:h-5 sm:w-5" />
+                🖼️ ESP Thermography Instructions - Image Gallery
+              </CardTitle>
+              <CardDescription className="text-sm sm:text-base text-blue-700 dark:text-blue-300">
+                📋 Follow these visual guides for proper ESP thermography inspection procedures
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Carousel Image Gallery */}
+              <div className="relative">
+                <Carousel className="w-full max-w-4xl mx-auto">
+                  <CarouselContent>
+                    {espInstructionImages.map((imageSrc, index) => (
+                      <CarouselItem key={index} className="md:basis-1/2 lg:basis-1/3">
+                        <div className="p-1">
+                          <Card className="border-2 hover:border-blue-400 dark:hover:border-blue-500 transition-colors dark:bg-gray-800/50">
+                            <CardContent className="p-0">
+                              <div 
+                                className="relative aspect-video bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden cursor-pointer group"
+                                onClick={() => {
+                                  setCurrentInstructionImage(index)
+                                  setShowInstructionModal(true)
+                                }}
+                              >
+                                <Image
+                                  src={imageSrc}
+                                  alt={`ESP Instruction ${index + 1}`}
+                                  fill
+                                  className="object-contain transition-transform group-hover:scale-105"
+                                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                  onError={(e) => {
+                                    console.error(`Failed to load image: ${imageSrc}`, e)
+                                  }}
+                                  onLoad={() => {
+                                    console.log(`Successfully loaded image: ${imageSrc}`)
+                                  }}
+                                />
+                                
+                                {/* Hover overlay */}
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                  <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 text-white px-3 py-2 rounded-lg flex items-center gap-2">
+                                    <Eye className="h-4 w-4" />
+                                    <span className="text-sm">View Full Size</span>
+                                  </div>
+                                </div>
+                                
+                                {/* Image Number */}
+                                <div className="absolute top-2 left-2 bg-blue-600 dark:bg-blue-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                                  {index + 1}
+                                </div>
+                                
+                                {/* Current indicator */}
+                                {currentInstructionImage === index && (
+                                  <div className="absolute top-2 right-2 bg-green-500 dark:bg-green-400 text-white p-1 rounded-full">
+                                    <CheckCircle className="h-3 w-3" />
+                                  </div>
+                                )}
+                              </div>
+                              
+                              {/* Image Title */}
+                              <div className="p-3 text-center">
+                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                  ESP Instruction Step {index + 1}
+                                </span>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </div>
+                      </CarouselItem>
+                    ))}
+                  </CarouselContent>
+                  <CarouselPrevious className="hidden sm:flex" />
+                  <CarouselNext className="hidden sm:flex" />
+                </Carousel>
+                
+                {/* Mobile Navigation Dots */}
+                <div className="flex justify-center gap-2 mt-4 sm:hidden">
+                  {espInstructionImages.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentInstructionImage(index)}
+                      className={`w-2 h-2 rounded-full transition-colors ${
+                        currentInstructionImage === index
+                          ? 'bg-blue-600 dark:bg-blue-400'
+                          : 'bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500'
+                      }`}
+                      aria-label={`Go to instruction ${index + 1}`}
+                    />
+                  ))}
+                </div>
+                
+                {/* Gallery Instructions */}
+                <div className="mt-4 text-center text-sm text-muted-foreground">
+                  <div className="hidden sm:block">
+                    Use arrow buttons to navigate • Click any image to view in full screen
+                  </div>
+                  <div className="sm:hidden">
+                    Swipe to navigate • Tap any image to view full screen
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="mb-4 sm:mb-6">
+            <CardHeader className="pb-3 sm:pb-6">
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                <Zap className="h-4 w-4 sm:h-5 sm:w-5" />
+                {editingSession ? 'Edit ESP Thermography Session' : 'New ESP Thermography Session'}
+              </CardTitle>
+              <CardDescription className="text-sm sm:text-base">
+                {editingSession 
+                  ? `Editing session for ${editingSession.espCode} - Complete or update temperature measurements`
+                  : 'Record temperature measurements for all transformers (TF1, TF2, TF3) in one session'
+                }
+              </CardDescription>
+            </CardHeader>
           <CardContent className="pt-0">
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
               {/* Session Details */}
@@ -1034,7 +1862,7 @@ export default function ThermographyPage() {
                 <h3 className="text-base sm:text-lg font-semibold">Transformer Measurements</h3>
                 
                 {formData.transformers.map((transformer, transformerIndex) => (
-                  <Card key={transformer.transformerNo} className="p-3 sm:p-4">
+                  <Card key={transformer.transformerNo} className="p-3 sm:p-4 dark:bg-gray-800/50">
                     <h4 className="text-sm sm:text-base font-medium mb-3 sm:mb-4 flex items-center gap-2">
                       <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
                       {transformer.transformerNo} - Step {transformerIndex + 1}
@@ -1115,39 +1943,51 @@ export default function ThermographyPage() {
                       </div>
                       
                       <div>
-                        <Label className="text-xs sm:text-sm font-medium">RDI-68 (°C)</Label>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          value={transformer.rdi68}
-                          onChange={(e) => updateTransformerField(transformerIndex, 'rdi68', e.target.value)}
-                          placeholder="Temperature"
-                          className="text-sm"
-                        />
+                        <Label className="text-xs sm:text-sm font-medium">RDI-68 Relay</Label>
+                        <Select 
+                          value={transformer.rdi68} 
+                          onValueChange={(value) => updateTransformerField(transformerIndex, 'rdi68', value)}
+                        >
+                          <SelectTrigger className="w-full text-sm">
+                            <SelectValue placeholder="Select relay status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="On" className="text-sm">On (Working)</SelectItem>
+                            <SelectItem value="Off" className="text-sm">Off (Not Working)</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       
                       <div>
-                        <Label className="text-xs sm:text-sm font-medium">RDI-69 (°C)</Label>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          value={transformer.rdi69}
-                          onChange={(e) => updateTransformerField(transformerIndex, 'rdi69', e.target.value)}
-                          placeholder="Temperature"
-                          className="text-sm"
-                        />
+                        <Label className="text-xs sm:text-sm font-medium">RDI-69 Relay</Label>
+                        <Select 
+                          value={transformer.rdi69} 
+                          onValueChange={(value) => updateTransformerField(transformerIndex, 'rdi69', value)}
+                        >
+                          <SelectTrigger className="w-full text-sm">
+                            <SelectValue placeholder="Select relay status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="On" className="text-sm">On (Working)</SelectItem>
+                            <SelectItem value="Off" className="text-sm">Off (Not Working)</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       
                       <div>
-                        <Label className="text-xs sm:text-sm font-medium">RDI-70 (°C)</Label>
-                        <Input
-                          type="number"
-                          step="0.1"
-                          value={transformer.rdi70}
-                          onChange={(e) => updateTransformerField(transformerIndex, 'rdi70', e.target.value)}
-                          placeholder="Temperature"
-                          className="text-sm"
-                        />
+                        <Label className="text-xs sm:text-sm font-medium">RDI-70 Relay</Label>
+                        <Select 
+                          value={transformer.rdi70} 
+                          onValueChange={(value) => updateTransformerField(transformerIndex, 'rdi70', value)}
+                        >
+                          <SelectTrigger className="w-full text-sm">
+                            <SelectValue placeholder="Select relay status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="On" className="text-sm">On (Working)</SelectItem>
+                            <SelectItem value="Off" className="text-sm">Off (Not Working)</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                   </Card>
@@ -1169,11 +2009,190 @@ export default function ThermographyPage() {
 
               {/* Form Actions */}
               <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
-                <Button type="button" variant="outline" onClick={handleCancelEdit} className="w-full sm:w-auto">
+                <Button type="button" variant="outline" onClick={handleCancelEdit} className="w-full sm:w-auto" disabled={isSubmitting}>
                   Cancel
                 </Button>
-                <Button type="submit" className="w-full sm:w-auto">
-                  {editingSession ? 'Update ESP Session' : 'Save ESP Session'}
+                <Button type="submit" className="w-full sm:w-auto" disabled={isSubmitting}>
+                  {isSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      {editingSession ? 'Updating...' : 'Saving...'}
+                    </>
+                  ) : (
+                    editingSession ? 'Update ESP Session' : 'Save ESP Session'
+                  )}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+        </>
+      )}
+
+      {/* LRS Form Modal */}
+      {showLrsForm && (
+        <Card className="mb-4 sm:mb-6">
+          <CardHeader className="pb-3 sm:pb-6">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Thermometer className="h-4 w-4 sm:h-5 sm:w-5" />
+              {editingLrsSession ? 'Edit LRS Thermography Session' : 'New LRS Thermography Session'}
+            </CardTitle>
+            <CardDescription className="text-sm sm:text-base">
+              {editingLrsSession 
+                ? `Editing session for ${editingLrsSession.tagNumber} - Update session details. Temperature recording is done separately in history section.`
+                : 'Setup new LRS/Motor thermography session. Temperature recording will be done later in the history section.'
+              }
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <form onSubmit={handleLrsSubmit} className="space-y-4 sm:space-y-6">
+              {/* Session Details */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                <div className="sm:col-span-2 lg:col-span-1">
+                  <Label htmlFor="tagNumber" className="text-sm font-medium">Tag Number</Label>
+                  <Combobox
+                    options={equipment.map((eq) => ({
+                      value: eq.tagNo,
+                      label: `${eq.tagNo} - ${eq.equipmentName}`,
+                    }))}
+                    value={lrsFormData.tagNumber}
+                    onValueChange={handleLrsTagNumberChange}
+                    placeholder="Select or add Tag Number (e.g., LRS-01)"
+                    searchPlaceholder="Search Tag Number..."
+                    allowCustom={true}
+                    onAddNew={(newTagNumber) => {
+                      const newEquipment = {
+                        id: Date.now(),
+                        tagNo: newTagNumber,
+                        equipmentName: `New LRS Equipment - ${newTagNumber}`,
+                        equipmentType: "LRS (Liquid Resistor Starter)",
+                        location: null,
+                      }
+                      setEquipment((prev) => [...prev, newEquipment])
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="equipmentName" className="text-sm font-medium">Equipment Name</Label>
+                  <Input
+                    id="equipmentName"
+                    value={lrsFormData.equipmentName}
+                    onChange={(e) => setLrsFormData(prev => ({ ...prev, equipmentName: e.target.value }))}
+                    placeholder="e.g., LRS Starter Panel 1"
+                    className="w-full text-sm"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="equipmentType" className="text-sm font-medium">Equipment Type</Label>
+                  <Select 
+                    value={lrsFormData.equipmentType} 
+                    onValueChange={(value) => setLrsFormData(prev => ({ ...prev, equipmentType: value }))}
+                  >
+                    <SelectTrigger className="w-full text-sm">
+                      <SelectValue placeholder="Select equipment type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {equipmentTypes.filter(type => type.includes('LRS') || type.includes('Motor')).map((type) => (
+                        <SelectItem key={type} value={type} className="text-sm">
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Inspector and Measurement Points */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                <div>
+                  <Label htmlFor="inspector" className="text-sm font-medium">Inspector</Label>
+                  <Input
+                    id="inspector"
+                    value={lrsFormData.inspector}
+                    onChange={(e) => setLrsFormData(prev => ({ ...prev, inspector: e.target.value }))}
+                    placeholder="Inspector name"
+                    className="w-full text-sm"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="numberOfPoints" className="text-sm font-medium">Number of Measurement Points</Label>
+                  <Select 
+                    value={lrsFormData.numberOfPoints.toString()} 
+                    onValueChange={(value) => updateLrsNumberOfPoints(parseInt(value))}
+                  >
+                    <SelectTrigger className="w-full text-sm">
+                      <SelectValue placeholder="Select number of points" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                        <SelectItem key={num} value={num.toString()} className="text-sm">
+                          {num} Point{num > 1 ? 's' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="previewImage" className="text-sm font-medium">Preview Image</Label>
+                  <Input
+                    id="previewImage"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        setLrsFormData(prev => ({ ...prev, previewImage: file }))
+                      }
+                    }}
+                    className="w-full text-sm"
+                  />
+                </div>
+              </div>
+
+
+
+              {/* Preview Image Display */}
+              {lrsFormData.previewImage && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Preview Image</Label>
+                  <div className="border rounded-lg p-4">
+                    <img
+                      src={URL.createObjectURL(lrsFormData.previewImage)}
+                      alt="LRS Equipment Preview"
+                      className="max-w-full h-auto max-h-64 mx-auto rounded"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Form Actions */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setShowLrsForm(false)
+                    setEditingLrsSession(null)
+                    resetLrsForm()
+                  }}
+                  className="w-full sm:w-auto"
+                  disabled={isLrsSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" className="w-full sm:w-auto" disabled={isLrsSubmitting}>
+                  {isLrsSubmitting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      {editingLrsSession ? 'Updating...' : 'Saving...'}
+                    </>
+                  ) : (
+                    editingLrsSession ? 'Update LRS Session' : 'Save LRS Session'
+                  )}
                 </Button>
               </div>
             </form>
@@ -1181,7 +2200,10 @@ export default function ThermographyPage() {
         </Card>
       )}
 
-      {/* Filters */}
+      {/* Conditional content based on active tab */}
+      {activeTab === 'esp' ? (
+        <>
+          {/* Filters */}
       <Card className="mb-4 sm:mb-6">
         <CardHeader className="pb-3 sm:pb-4">
           <CardTitle className="text-sm sm:text-base">Filters & Search</CardTitle>
@@ -1389,15 +2411,12 @@ export default function ThermographyPage() {
                             record.mccbCOg1 || 0,
                             record.mccbCOg2 || 0,
                             record.mccbBodyTemp || 0,
-                            record.scrCoolingFinsTemp || 0,
-                            record.rdi68 || 0,
-                            record.rdi69 || 0,
-                            record.rdi70 || 0
+                            record.scrCoolingFinsTemp || 0
                           )
                           const status = getTemperatureStatus(maxTemp)
                           
                           return (
-                            <Card key={record.id} className="p-3">
+                            <Card key={record.id} className="p-3 dark:bg-gray-800/50">
                               <div className="flex items-center justify-between mb-2 sm:mb-3">
                                 <div className="flex items-center gap-2">
                                   <Zap className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -1435,16 +2454,16 @@ export default function ThermographyPage() {
                                   <div className="font-medium">{record.scrCoolingFinsTemp ? `${record.scrCoolingFinsTemp}°C` : '-'}</div>
                                 </div>
                                 <div>
-                                  <span className="text-muted-foreground">RDI-68:</span>
-                                  <div className="font-medium">{record.rdi68 ? `${record.rdi68}°C` : '-'}</div>
+                                  <span className="text-muted-foreground">RDI-68 Relay:</span>
+                                  <div className="font-medium">{record.rdi68 || '-'}</div>
                                 </div>
                                 <div>
-                                  <span className="text-muted-foreground">RDI-69:</span>
-                                  <div className="font-medium">{record.rdi69 ? `${record.rdi69}°C` : '-'}</div>
+                                  <span className="text-muted-foreground">RDI-69 Relay:</span>
+                                  <div className="font-medium">{record.rdi69 || '-'}</div>
                                 </div>
                                 <div className="col-span-2">
-                                  <span className="text-muted-foreground">RDI-70:</span>
-                                  <div className="font-medium">{record.rdi70 ? `${record.rdi70}°C` : '-'}</div>
+                                  <span className="text-muted-foreground">RDI-70 Relay:</span>
+                                  <div className="font-medium">{record.rdi70 || '-'}</div>
                                 </div>
                               </div>
                             </Card>
@@ -1465,9 +2484,9 @@ export default function ThermographyPage() {
                               <TableHead className="text-xs">MCCB C O/G-2</TableHead>
                               <TableHead className="text-xs">MCCB Body</TableHead>
                               <TableHead className="text-xs">SCR Fins</TableHead>
-                              <TableHead className="text-xs">RDI-68</TableHead>
-                              <TableHead className="text-xs">RDI-69</TableHead>
-                              <TableHead className="text-xs">RDI-70</TableHead>
+                              <TableHead className="text-xs">RDI-68 Relay</TableHead>
+                              <TableHead className="text-xs">RDI-69 Relay</TableHead>
+                              <TableHead className="text-xs">RDI-70 Relay</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -1478,10 +2497,7 @@ export default function ThermographyPage() {
                                 record.mccbCOg1 || 0,
                                 record.mccbCOg2 || 0,
                                 record.mccbBodyTemp || 0,
-                                record.scrCoolingFinsTemp || 0,
-                                record.rdi68 || 0,
-                                record.rdi69 || 0,
-                                record.rdi70 || 0
+                                record.scrCoolingFinsTemp || 0
                               )
                               const status = getTemperatureStatus(maxTemp)
                               
@@ -1511,9 +2527,9 @@ export default function ThermographyPage() {
                                     </div>
                                   </TableCell>
                                   <TableCell className="text-xs">{record.scrCoolingFinsTemp ? `${record.scrCoolingFinsTemp}°C` : '-'}</TableCell>
-                                  <TableCell className="text-xs">{record.rdi68 ? `${record.rdi68}°C` : '-'}</TableCell>
-                                  <TableCell className="text-xs">{record.rdi69 ? `${record.rdi69}°C` : '-'}</TableCell>
-                                  <TableCell className="text-xs">{record.rdi70 ? `${record.rdi70}°C` : '-'}</TableCell>
+                                  <TableCell className="text-xs">{record.rdi68 || '-'}</TableCell>
+                                  <TableCell className="text-xs">{record.rdi69 || '-'}</TableCell>
+                                  <TableCell className="text-xs">{record.rdi70 || '-'}</TableCell>
                                 </TableRow>
                               )
                             })}
@@ -1522,7 +2538,7 @@ export default function ThermographyPage() {
                       </div>
                       
                       {session.remarks && (
-                        <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-muted rounded-lg">
+                        <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-muted dark:bg-gray-800/50 rounded-lg">
                           <p className="text-xs sm:text-sm">
                             <strong>Session Remarks:</strong> {session.remarks}
                           </p>
@@ -1536,6 +2552,421 @@ export default function ThermographyPage() {
           </div>
         </CardContent>
       </Card>
+        </>
+      ) : (
+        <>
+          {/* LRS Content - Sessions List */}
+          <Card>
+            <CardHeader className="pb-3 sm:pb-4">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                <div>
+                  <CardTitle className="text-sm sm:text-base">LRS & Motor Thermography Sessions ({lrsSessions.length})</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">
+                    Temperature monitoring sessions for LRS and Motor equipment
+                  </CardDescription>
+                </div>
+                <Button
+                  onClick={() => {
+                    console.log('Manual refresh triggered, current sessions:', lrsSessions.length)
+                    fetchLrsSessions()
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  Refresh ({lrsSessions.length})
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="text-center">
+                    <Thermometer className="h-8 w-8 animate-spin mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Loading LRS sessions...</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3 sm:space-y-4">
+                  {lrsSessions.length === 0 ? (
+                    <div className="text-center py-6 sm:py-8">
+                      <Thermometer className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-3 sm:mb-4 text-muted-foreground" />
+                      <p className="text-muted-foreground text-xs sm:text-sm">No LRS sessions found</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Add your first LRS thermography session
+                      </p>
+                    </div>
+                  ) : (
+                    [...lrsSessions].reverse().map((session, index) => (
+                    <div key={`lrs-session-${session.id}-${session.tagNumber}-${index}`} className="space-y-4">
+                      <Card className="overflow-hidden hover:shadow-md transition-shadow dark:bg-gray-800/50 dark:hover:shadow-lg">
+                        <CardContent className="p-4 sm:p-6">
+                          {/* Session Header */}
+                          <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3">
+                                <h3 className="text-lg font-semibold break-words">
+                                  {session.tagNumber}
+                                </h3>
+                                <Badge variant="outline" className="text-xs px-2 py-1 w-fit">
+                                  {session.equipmentType}
+                                </Badge>
+                              </div>
+                              
+                              <div className="text-sm text-muted-foreground mb-2">
+                                <strong>{session.equipmentName}</strong>
+                              </div>
+                              
+                              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <CalendarIcon className="h-4 w-4" />
+                                  {format(new Date(session.date), 'MMM dd, yyyy')}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <User className="h-4 w-4" />
+                                  {session.inspector}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Thermometer className="h-4 w-4" />
+                                  {session.numberOfPoints} Point{session.numberOfPoints > 1 ? 's' : ''}
+                                </span>
+                              </div>
+                              
+                              {/* Preview Image */}
+                              {session.previewImage && (
+                                <div className="mt-4">
+                                  <div className="text-xs text-muted-foreground mb-2">Preview Image</div>
+                                  <div className="relative w-32 h-24 rounded-lg overflow-hidden border bg-gray-50">
+                                    <Image
+                                      src={session.previewImage.startsWith('/') ? session.previewImage : `/uploads/${session.previewImage}`}
+                                      alt={`${session.tagNumber} Preview`}
+                                      fill
+                                      className="object-cover"
+                                      onError={(e) => {
+                                        // Fallback to placeholder if image fails to load
+                                        e.currentTarget.src = '/placeholder.svg'
+                                      }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Actions */}
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                onClick={() => downloadLrsExcel(session.id)}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                              >
+                                <Download className="h-3 w-3 mr-1" />
+                                Excel
+                              </Button>
+                              <Button
+                                onClick={() => {
+                                  setEditingLrsSession(session);
+                                  setLrsFormData({
+                                    tagNumber: session.tagNumber,
+                                    equipmentName: session.equipmentName,
+                                    equipmentType: session.equipmentType,
+                                    inspector: session.inspector,
+                                    numberOfPoints: session.numberOfPoints,
+                                    temperatureRecords: session.temperatureRecords,
+                                    previewImage: null
+                                  });
+                                  setShowLrsForm(true);
+                                }}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                              >
+                                <Edit2 className="h-3 w-3 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                onClick={() => startTemperatureRecording(session)}
+                                variant="default"
+                                size="sm"
+                                className="text-xs"
+                                disabled={recordingSessionId === session.id}
+                              >
+                                <Thermometer className="h-3 w-3 mr-1" />
+                                {recordingSessionId === session.id ? 'Recording...' : 'Record Temps'}
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Temperature Records Section */}
+                          <div className="mt-6 pt-4 border-t">
+                            <Button
+                              variant="ghost"
+                              onClick={() => {
+                                setExpandedSessions(prev => 
+                                  prev.has(session.id) 
+                                    ? new Set([...prev].filter(id => id !== session.id))
+                                    : new Set([...prev, session.id])
+                                );
+                              }}
+                              className="w-full justify-between p-2 h-auto hover:bg-muted/50"
+                            >
+                              <div className="flex items-center gap-2">
+                                <BarChart3 className="h-4 w-4" />
+                                <span className="text-sm font-medium">
+                                  Temperature Records ({session.temperatureRecords.length}/{session.numberOfPoints})
+                                </span>
+                                {session.temperatureRecords.length < session.numberOfPoints && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {session.numberOfPoints - session.temperatureRecords.length} pending
+                                  </Badge>
+                                )}
+                              </div>
+                              {expandedSessions.has(session.id) ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                            </Button>
+
+                            {expandedSessions.has(session.id) && (
+                              <div className="mt-3 space-y-2">
+                                {session.temperatureRecords.length > 0 ? (
+                                  <div className="grid gap-3">
+                                    {session.temperatureRecords.map((record, idx) => (
+                                      <div
+                                        key={idx}
+                                        className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-3 bg-muted/30 rounded-lg border"
+                                      >
+                                        <div className="flex-1 min-w-0">
+                                          <div className="font-medium text-sm text-foreground">{record.point}</div>
+                                          <div className="text-xs text-muted-foreground mt-1 break-words">{record.description}</div>
+                                        </div>
+                                        <div className="flex items-center gap-3 flex-shrink-0">
+                                          <div className="text-right">
+                                            <div className="font-mono text-lg font-semibold">
+                                              {record.temperature && record.temperature > 0 ? `${record.temperature}°C` : '—'}
+                                            </div>
+                                          </div>
+                                          <Badge
+                                            variant="outline"
+                                            className={`text-xs whitespace-nowrap ${
+                                              record.status === 'Normal' ? 'bg-green-100 text-green-800 border-green-300' :
+                                              record.status === 'Warning' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                                              'bg-red-100 text-red-800 border-red-300'
+                                            }`}
+                                          >
+                                            {record.status}
+                                          </Badge>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-center py-4 text-muted-foreground">
+                                    <Thermometer className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                    <p className="text-sm">No temperature records yet</p>
+                                    <p className="text-xs">Click "Record Temps" to add measurements</p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                      
+                      {/* Temperature Recording Form */}
+                      {recordingSessionId === session.id && (
+                        <Card className="border-2 border-blue-200 bg-blue-50/50 dark:border-blue-600 dark:bg-blue-950/30">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-lg flex items-center gap-2">
+                              <Thermometer className="h-5 w-5 text-blue-600" />
+                              Temperature Recording - {session.tagNumber}
+                            </CardTitle>
+                            <CardDescription>
+                              Enter temperature measurements for each defined point
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-4">
+                              {/* Recording Summary */}
+                              <div className="bg-blue-50 dark:bg-blue-950/50 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+                                <div className="text-sm">
+                                  <div className="font-medium text-blue-900 dark:text-blue-100 mb-1">Recording Summary</div>
+                                  <div className="text-blue-700 dark:text-blue-300 text-xs space-y-1">
+                                    <div>• Previous recordings: {session.temperatureRecords.length} measurements saved</div>
+                                    <div>• Current session: {recordingData.filter(r => r.temperature > 0).length} new measurements ready</div>
+                                    <div>• All recordings will be preserved - new measurements will be added to existing ones</div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {recordingData.length === 0 ? (
+                                <div className="text-center py-8 text-muted-foreground">
+                                  <Thermometer className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                                  <p>No temperature recording points available.</p>
+                                  <p className="text-sm">This session may need to be recreated with proper measurement points.</p>
+                                </div>
+                              ) : (
+                                recordingData.map((record, index) => (
+                                <div key={index} className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-4 bg-white rounded-lg border">
+                                  <div>
+                                    <Label className="text-sm font-medium">Point Description</Label>
+                                    <div className="text-sm text-muted-foreground mt-1">
+                                      <div className="font-medium">{record.point}</div>
+                                      <div className="text-xs">{record.description}</div>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <Label className="text-sm font-medium">Temperature (°C)</Label>
+                                    <Input
+                                      type="number"
+                                      step="0.1"
+                                      value={record.temperature}
+                                      onChange={(e) => updateRecordingTemperature(index, parseFloat(e.target.value) || 0)}
+                                      placeholder="Enter temperature"
+                                      className="text-sm mt-1"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-sm font-medium">Auto Status</Label>
+                                    <Badge 
+                                      className={`mt-1 ${
+                                        record.status === 'Normal' ? 'bg-green-100 text-green-800' :
+                                        record.status === 'Warning' ? 'bg-yellow-100 text-yellow-800' :
+                                        'bg-red-100 text-red-800'
+                                      }`}
+                                    >
+                                      {record.status}
+                                    </Badge>
+                                  </div>
+                                  <div className="flex items-end">
+                                    <div className="text-xs text-muted-foreground">
+                                      Normal: ≤60°C<br/>
+                                      Warning: 61-80°C<br/>
+                                      Critical: &gt;80°C
+                                    </div>
+                                  </div>
+                                </div>
+                              )))
+                              }
+                              
+                              {/* Recording Actions */}
+                              <div className="flex gap-2 pt-4 border-t">
+                                <Button
+                                  onClick={cancelTemperatureRecording}
+                                  variant="outline"
+                                  className="flex-1"
+                                  disabled={isRecordingSubmitting}
+                                >
+                                  Cancel Recording
+                                </Button>
+                                <Button
+                                  onClick={saveTemperatureRecording}
+                                  className="flex-1"
+                                  disabled={isRecordingSubmitting || recordingData.filter(record => record.temperature > 0).length === 0}
+                                >
+                                  {isRecordingSubmitting ? (
+                                    <>
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                      Saving...
+                                    </>
+                                  ) : (
+                                    (() => {
+                                      const recordsToSave = recordingData.filter(record => record.temperature > 0).length
+                                      return recordsToSave > 0 
+                                        ? `Save ${recordsToSave} Temperature Record${recordsToSave > 1 ? 's' : ''}`
+                                        : 'Enter temperatures to save'
+                                    })()
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )}
+                    </div>
+                  ))
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {/* ESP Instruction Modal */}
+      <Dialog open={showInstructionModal} onOpenChange={setShowInstructionModal}>
+        <DialogContent className="max-w-5xl w-full max-h-[95vh] p-0 dark:bg-gray-900">
+          <DialogHeader className="p-6 pb-2">
+            <DialogTitle className="flex items-center gap-2 dark:text-gray-100">
+              <Eye className="h-5 w-5" />
+              ESP Instruction {currentInstructionImage + 1} of {espInstructionImages.length}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="relative px-6 pb-6">
+            {/* Modal Carousel */}
+            <Carousel className="w-full">
+              <CarouselContent>
+                {espInstructionImages.map((imageSrc, index) => (
+                  <CarouselItem key={index}>
+                    <div className="relative aspect-video bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
+                      <Image
+                        src={imageSrc}
+                        alt={`ESP Instruction ${index + 1}`}
+                        fill
+                        className="object-contain"
+                        priority={index === currentInstructionImage}
+                        sizes="(max-width: 768px) 100vw, 80vw"
+                      />
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious 
+                className="left-4 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700" 
+                onClick={() => setCurrentInstructionImage(prev => 
+                  prev === 0 ? espInstructionImages.length - 1 : prev - 1
+                )}
+              />
+              <CarouselNext 
+                className="right-4 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                onClick={() => setCurrentInstructionImage(prev => 
+                  prev === espInstructionImages.length - 1 ? 0 : prev + 1
+                )}
+              />
+            </Carousel>
+            
+            {/* Modal Thumbnail Navigation */}
+            <div className="flex justify-center gap-3 mt-4 flex-wrap">
+              {espInstructionImages.map((imageSrc, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentInstructionImage(index)}
+                  className={`w-16 h-10 rounded border-2 transition-all hover:scale-110 ${
+                    currentInstructionImage === index
+                      ? 'border-blue-500 ring-2 ring-blue-200 dark:border-blue-400 dark:ring-blue-600'
+                      : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'
+                  }`}
+                >
+                  <Image
+                    src={imageSrc}
+                    alt={`Instruction ${index + 1} thumbnail`}
+                    width={64}
+                    height={40}
+                    className="w-full h-full object-cover rounded"
+                  />
+                </button>
+              ))}
+            </div>
+            
+            {/* Close Instructions */}
+            <div className="text-center mt-4 text-sm text-muted-foreground">
+              Press ESC or click outside to close • Use arrow keys or buttons to navigate
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

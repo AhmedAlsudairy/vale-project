@@ -51,19 +51,17 @@ export async function POST(request: NextRequest) {
       console.log(`Created new ESP equipment: ${espCode}`)
     }
 
-    // Calculate completion status based on actual data, not just transformer count
+    // Calculate completion status based on actual temperature data, not relay status
     const completedTransformers = transformers.filter((transformer: any) => {
-      // Check if transformer has at least one meaningful measurement
+      // Check if transformer has at least one meaningful temperature measurement
       return (
         (transformer.mccbIcRPhase && parseFloat(transformer.mccbIcRPhase) > 0) ||
         (transformer.mccbIcBPhase && parseFloat(transformer.mccbIcBPhase) > 0) ||
         (transformer.mccbCOg1 && parseFloat(transformer.mccbCOg1) > 0) ||
         (transformer.mccbCOg2 && parseFloat(transformer.mccbCOg2) > 0) ||
         (transformer.mccbBodyTemp && parseFloat(transformer.mccbBodyTemp) > 0) ||
-        (transformer.scrCoolingFinsTemp && parseFloat(transformer.scrCoolingFinsTemp) > 0) ||
-        (transformer.rdi68 && parseFloat(transformer.rdi68) > 0) ||
-        (transformer.rdi69 && parseFloat(transformer.rdi69) > 0) ||
-        (transformer.rdi70 && parseFloat(transformer.rdi70) > 0)
+        (transformer.scrCoolingFinsTemp && parseFloat(transformer.scrCoolingFinsTemp) > 0)
+        // Note: RDI fields are relay status, not temperatures, so excluded from completion check
       )
     }).length
 
@@ -91,9 +89,9 @@ export async function POST(request: NextRequest) {
             scrCoolingFan: transformer.scrCoolingFan || null,
             panelExhaustFan: transformer.panelExhaustFan || null,
             mccForcedCoolingFanTemp: transformer.mccForcedCoolingFanTemp || null,
-            rdi68: parseFloat(transformer.rdi68) || null,
-            rdi69: parseFloat(transformer.rdi69) || null,
-            rdi70: parseFloat(transformer.rdi70) || null
+            rdi68: transformer.rdi68 || null, // Relay status: "On" or "Off"
+            rdi69: transformer.rdi69 || null, // Relay status: "On" or "Off"
+            rdi70: transformer.rdi70 || null  // Relay status: "On" or "Off"
           }))
         }
       },

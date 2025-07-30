@@ -103,10 +103,10 @@ model EspTransformerRecord {
   panelExhaustFan           String?  @map("panel_exhaust_fan")
   mccForcedCoolingFanTemp   String?  @map("mcc_forced_cooling_fan_temp")
   
-  // RDI measurements
-  rdi68                     Float?   
-  rdi69                     Float?   
-  rdi70                     Float?   
+  // RDI relay status (On/Off instead of temperature)
+  rdi68                     String?  // "On" or "Off"
+  rdi69                     String?  // "On" or "Off"
+  rdi70                     String?  // "On" or "Off"
   
   createdAt                 DateTime @default(now()) @map("created_at")
   updatedAt                 DateTime @updatedAt @map("updated_at")
@@ -114,6 +114,38 @@ model EspTransformerRecord {
   session EspThermographySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@map("esp_transformer_records")
+}
+
+model LrsThermographySession {
+  id                Int      @id @default(autoincrement())
+  tagNumber         String   @map("tag_number") // LRS-01, LRS-02, etc.
+  equipmentName     String   @map("equipment_name")
+  equipmentType     String   @map("equipment_type")
+  numberOfPoints    Int      @map("number_of_points") // Number of planned measurement points
+  date              DateTime @default(now())
+  previewImage      String?  @map("preview_image")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  temperatureRecords LrsTemperatureRecord[]
+
+  @@map("lrs_thermography_sessions")
+}
+
+model LrsTemperatureRecord {
+  id              Int      @id @default(autoincrement())
+  sessionId       Int      @map("session_id")
+  point           String   // Point description
+  description     String   // Detailed description
+  temperature     Float    // Temperature value
+  status          String   // Normal, Warning, Critical
+  inspector       String?  // Inspector's name
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  session LrsThermographySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("lrs_temperature_records")
 }
 
 // Keep the old model for backward compatibility

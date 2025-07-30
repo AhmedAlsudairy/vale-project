@@ -10,6 +10,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { Home, BarChart3, Clipboard, Settings, Menu, X, Zap, Package, Thermometer } from "lucide-react"
 import { useState } from "react"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -61,15 +62,24 @@ function Navigation() {
             <Link href="/thermography">
               <Button variant="ghost" size="sm" className="text-sm">
                 <Thermometer className="h-4 w-4 mr-2" />
-                Thermo
+                ESP Thermo
+              </Button>
+            </Link>
+            <Link href="/lrs-thermography">
+              <Button variant="ghost" size="sm" className="text-sm">
+                <Thermometer className="h-4 w-4 mr-2" />
+                LRS Thermo
               </Button>
             </Link>
           </div>
 
-          {/* Mobile Menu Button */}
-          <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setIsOpen(!isOpen)}>
-            {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </Button>
+          {/* Theme Toggle & Mobile Menu Button */}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button variant="ghost" size="sm" className="lg:hidden" onClick={() => setIsOpen(!isOpen)}>
+              {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
+          </div>
         </div>
 
         {/* Mobile Navigation */}
@@ -110,6 +120,12 @@ function Navigation() {
                 <Button variant="ghost" className="w-full justify-start text-sm">
                   <Thermometer className="h-4 w-4 mr-2" />
                   ESP Thermography
+                </Button>
+              </Link>
+              <Link href="/lrs-thermography" onClick={() => setIsOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start text-sm">
+                  <Thermometer className="h-4 w-4 mr-2" />
+                  LRS Thermography
                 </Button>
               </Link>
             </div>

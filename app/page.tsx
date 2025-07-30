@@ -62,7 +62,7 @@ export default function HomePage() {
       </div>
 
       {/* Main Feature Cards - Responsive Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6 mb-8 sm:mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 sm:gap-6 mb-8 sm:mb-12">
         <Card className="hover:shadow-lg transition-all duration-300 hover:scale-105">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
@@ -126,7 +126,24 @@ export default function HomePage() {
           </CardHeader>
           <CardContent>
             <Link href="/thermography">
-              <Button className="w-full text-sm sm:text-base">Monitor Temperature</Button>
+              <Button className="w-full text-sm sm:text-base">Monitor ESP</Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-all duration-300 hover:scale-105">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Thermometer className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
+              LRS Thermography
+            </CardTitle>
+            <CardDescription className="text-sm sm:text-base">
+              Monitor thermal conditions for Liquid Resistor Starter equipment and contactors
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/thermography?tab=lrs">
+              <Button className="w-full text-sm sm:text-base">Monitor LRS</Button>
             </Link>
           </CardContent>
         </Card>
