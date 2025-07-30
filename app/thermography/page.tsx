@@ -83,6 +83,9 @@ interface LrsTemperatureRecord {
   description: string
   temperature: number
   status: 'Normal' | 'Warning' | 'Critical'
+  inspector?: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 const months = [
@@ -149,6 +152,8 @@ export default function ThermographyPage() {
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [currentInstructionImage, setCurrentInstructionImage] = useState(0)
   const [showInstructionModal, setShowInstructionModal] = useState(false)
+  const [showLrsImageModal, setShowLrsImageModal] = useState(false)
+  const [currentLrsImage, setCurrentLrsImage] = useState<string>('')
   const [recordingSessionId, setRecordingSessionId] = useState<number | null>(null)
   const [recordingData, setRecordingData] = useState<LrsTemperatureRecord[]>([])
 
@@ -578,10 +583,10 @@ export default function ThermographyPage() {
 
     const exportData = sortedSessions.flatMap(session =>
       session.temperatureRecords.map(record => ({
-        'Date': format(new Date(session.date), 'dd/MM/yyyy'),
-        'Time': format(new Date(session.date), 'HH:mm'),
-        'Day of Week': format(new Date(session.date), 'EEEE'),
-        'Month': format(new Date(session.date), 'MMMM yyyy'),
+        'Recording Date': record.createdAt ? format(new Date(record.createdAt), 'dd/MM/yyyy') : format(new Date(), 'dd/MM/yyyy'),
+        'Recording Time': record.createdAt ? format(new Date(record.createdAt), 'HH:mm:ss') : format(new Date(), 'HH:mm:ss'),
+        'Day of Week': record.createdAt ? format(new Date(record.createdAt), 'EEEE') : format(new Date(), 'EEEE'),
+        'Month Year': record.createdAt ? format(new Date(record.createdAt), 'MMMM yyyy') : format(new Date(), 'MMMM yyyy'),
         'Tag Number': session.tagNumber,
         'Equipment Name': session.equipmentName,
         'Equipment Type': session.equipmentType,
@@ -2636,17 +2641,32 @@ export default function ThermographyPage() {
                               {session.previewImage && (
                                 <div className="mt-4">
                                   <div className="text-xs text-muted-foreground mb-2">Preview Image</div>
-                                  <div className="relative w-32 h-24 rounded-lg overflow-hidden border bg-gray-50">
+                                  <div 
+                                    className="relative w-32 h-24 rounded-lg overflow-hidden border bg-gray-50 cursor-pointer hover:border-blue-400 transition-colors group"
+                                    onClick={() => {
+                                      const imageSrc = session.previewImage?.startsWith('/') ? session.previewImage : `/uploads/${session.previewImage}`
+                                      setCurrentLrsImage(imageSrc)
+                                      setShowLrsImageModal(true)
+                                    }}
+                                  >
                                     <Image
                                       src={session.previewImage.startsWith('/') ? session.previewImage : `/uploads/${session.previewImage}`}
                                       alt={`${session.tagNumber} Preview`}
                                       fill
-                                      className="object-cover"
+                                      className="object-cover transition-transform group-hover:scale-105"
                                       onError={(e) => {
                                         // Fallback to placeholder if image fails to load
                                         e.currentTarget.src = '/placeholder.svg'
                                       }}
                                     />
+                                    
+                                    {/* Hover overlay */}
+                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                      <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-black/70 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                                        <Eye className="h-3 w-3" />
+                                        <span>View</span>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               )}
@@ -2735,24 +2755,34 @@ export default function ThermographyPage() {
                                     {session.temperatureRecords.map((record, idx) => (
                                       <div
                                         key={idx}
-                                        className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-3 bg-muted/30 rounded-lg border"
+                                        className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 p-3 bg-muted/30 dark:bg-gray-800/30 rounded-lg border dark:border-gray-700"
                                       >
                                         <div className="flex-1 min-w-0">
-                                          <div className="font-medium text-sm text-foreground">{record.point}</div>
-                                          <div className="text-xs text-muted-foreground mt-1 break-words">{record.description}</div>
+                                          <div className="font-medium text-sm text-foreground dark:text-gray-100">{record.point}</div>
+                                          <div className="text-xs text-muted-foreground dark:text-gray-400 mt-1 break-words">{record.description}</div>
+                                          {record.createdAt && (
+                                            <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
+                                              📅 {format(new Date(record.createdAt), 'dd/MM/yyyy HH:mm')}
+                                            </div>
+                                          )}
                                         </div>
                                         <div className="flex items-center gap-3 flex-shrink-0">
                                           <div className="text-right">
-                                            <div className="font-mono text-lg font-semibold">
+                                            <div className="font-mono text-lg font-semibold dark:text-gray-100">
                                               {record.temperature && record.temperature > 0 ? `${record.temperature}°C` : '—'}
                                             </div>
+                                            {record.createdAt && (
+                                              <div className="text-xs text-muted-foreground dark:text-gray-400 mt-1">
+                                                {format(new Date(record.createdAt), 'MMM dd, yyyy')}
+                                              </div>
+                                            )}
                                           </div>
                                           <Badge
                                             variant="outline"
                                             className={`text-xs whitespace-nowrap ${
-                                              record.status === 'Normal' ? 'bg-green-100 text-green-800 border-green-300' :
-                                              record.status === 'Warning' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
-                                              'bg-red-100 text-red-800 border-red-300'
+                                              record.status === 'Normal' ? 'bg-green-100 text-green-800 border-green-300 dark:bg-green-900/30 dark:text-green-300 dark:border-green-600' :
+                                              record.status === 'Warning' ? 'bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-600' :
+                                              'bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-300 dark:border-red-600'
                                             }`}
                                           >
                                             {record.status}
@@ -2778,13 +2808,28 @@ export default function ThermographyPage() {
                       {recordingSessionId === session.id && (
                         <Card className="border-2 border-blue-200 bg-blue-50/50 dark:border-blue-600 dark:bg-blue-950/30">
                           <CardHeader className="pb-3">
-                            <CardTitle className="text-lg flex items-center gap-2">
-                              <Thermometer className="h-5 w-5 text-blue-600" />
-                              Temperature Recording - {session.tagNumber}
-                            </CardTitle>
-                            <CardDescription>
-                              Enter temperature measurements for each defined point
-                            </CardDescription>
+                            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
+                              <div>
+                                <CardTitle className="text-lg flex items-center gap-2">
+                                  <Thermometer className="h-5 w-5 text-blue-600" />
+                                  Temperature Recording - {session.tagNumber}
+                                </CardTitle>
+                                <CardDescription>
+                                  Enter temperature measurements for each defined point
+                                </CardDescription>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                                  📅 Recording Session
+                                </div>
+                                <div className="text-xs text-blue-600 dark:text-blue-400">
+                                  {format(new Date(), 'EEEE, dd MMMM yyyy')}
+                                </div>
+                                <div className="text-xs text-muted-foreground dark:text-gray-400">
+                                  {format(new Date(), 'HH:mm')} Current Time
+                                </div>
+                              </div>
+                            </div>
                           </CardHeader>
                           <CardContent>
                             <div className="space-y-4">
@@ -2808,42 +2853,52 @@ export default function ThermographyPage() {
                                 </div>
                               ) : (
                                 recordingData.map((record, index) => (
-                                <div key={index} className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-4 bg-white rounded-lg border">
+                                <div key={index} className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-4 bg-white dark:bg-gray-800/50 rounded-lg border dark:border-gray-700">
                                   <div>
-                                    <Label className="text-sm font-medium">Point Description</Label>
-                                    <div className="text-sm text-muted-foreground mt-1">
-                                      <div className="font-medium">{record.point}</div>
-                                      <div className="text-xs">{record.description}</div>
+                                    <Label className="text-sm font-medium dark:text-gray-200">Point Description</Label>
+                                    <div className="text-sm text-muted-foreground dark:text-gray-300 mt-1">
+                                      <div className="font-medium dark:text-gray-100">{record.point}</div>
+                                      <div className="text-xs dark:text-gray-400">{record.description}</div>
                                     </div>
                                   </div>
                                   <div>
-                                    <Label className="text-sm font-medium">Temperature (°C)</Label>
+                                    <Label className="text-sm font-medium dark:text-gray-200">Temperature (°C)</Label>
                                     <Input
                                       type="number"
                                       step="0.1"
                                       value={record.temperature}
                                       onChange={(e) => updateRecordingTemperature(index, parseFloat(e.target.value) || 0)}
                                       placeholder="Enter temperature"
-                                      className="text-sm mt-1"
+                                      className="text-sm mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 dark:placeholder-gray-400"
                                     />
                                   </div>
                                   <div>
-                                    <Label className="text-sm font-medium">Auto Status</Label>
+                                    <Label className="text-sm font-medium dark:text-gray-200">Auto Status</Label>
                                     <Badge 
                                       className={`mt-1 ${
-                                        record.status === 'Normal' ? 'bg-green-100 text-green-800' :
-                                        record.status === 'Warning' ? 'bg-yellow-100 text-yellow-800' :
-                                        'bg-red-100 text-red-800'
+                                        record.status === 'Normal' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 dark:border-green-600' :
+                                        record.status === 'Warning' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-600' :
+                                        'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 dark:border-red-600'
                                       }`}
                                     >
                                       {record.status}
                                     </Badge>
                                   </div>
                                   <div className="flex items-end">
-                                    <div className="text-xs text-muted-foreground">
-                                      Normal: ≤60°C<br/>
-                                      Warning: 61-80°C<br/>
-                                      Critical: &gt;80°C
+                                    <div className="text-xs text-muted-foreground dark:text-gray-400 space-y-2">
+                                      <div className="space-y-1">
+                                        <div className="text-green-600 dark:text-green-400">Normal: ≤60°C</div>
+                                        <div className="text-yellow-600 dark:text-yellow-400">Warning: 61-80°C</div>
+                                        <div className="text-red-600 dark:text-red-400">Critical: &gt;80°C</div>
+                                      </div>
+                                      <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+                                        <div className="text-blue-600 dark:text-blue-400 font-medium">
+                                          📅 Recording Date
+                                        </div>
+                                        <div className="text-xs">
+                                          {format(new Date(), 'dd/MM/yyyy HH:mm')}
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
@@ -2851,18 +2906,18 @@ export default function ThermographyPage() {
                               }
                               
                               {/* Recording Actions */}
-                              <div className="flex gap-2 pt-4 border-t">
+                              <div className="flex gap-2 pt-4 border-t dark:border-gray-700">
                                 <Button
                                   onClick={cancelTemperatureRecording}
                                   variant="outline"
-                                  className="flex-1"
+                                  className="flex-1 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
                                   disabled={isRecordingSubmitting}
                                 >
                                   Cancel Recording
                                 </Button>
                                 <Button
                                   onClick={saveTemperatureRecording}
-                                  className="flex-1"
+                                  className="flex-1 dark:bg-blue-600 dark:hover:bg-blue-700 dark:text-white"
                                   disabled={isRecordingSubmitting || recordingData.filter(record => record.temperature > 0).length === 0}
                                 >
                                   {isRecordingSubmitting ? (
@@ -2963,6 +3018,41 @@ export default function ThermographyPage() {
             {/* Close Instructions */}
             <div className="text-center mt-4 text-sm text-muted-foreground">
               Press ESC or click outside to close • Use arrow keys or buttons to navigate
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* LRS Image Preview Modal */}
+      <Dialog open={showLrsImageModal} onOpenChange={setShowLrsImageModal}>
+        <DialogContent className="max-w-4xl w-full max-h-[95vh] p-0 dark:bg-gray-900">
+          <DialogHeader className="p-6 pb-2">
+            <DialogTitle className="flex items-center gap-2 dark:text-gray-100">
+              <Eye className="h-5 w-5" />
+              LRS Equipment Preview Image
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="relative px-6 pb-6">
+            <div className="relative w-full max-h-[70vh] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+              {currentLrsImage && (
+                <Image
+                  src={currentLrsImage}
+                  alt="LRS Equipment Preview"
+                  width={800}
+                  height={600}
+                  className="w-full h-auto max-h-[70vh] object-contain"
+                  onError={(e) => {
+                    console.error(`Failed to load LRS image: ${currentLrsImage}`, e)
+                    e.currentTarget.src = '/placeholder.svg'
+                  }}
+                />
+              )}
+            </div>
+            
+            {/* Close Instructions */}
+            <div className="text-center mt-4 text-sm text-muted-foreground">
+              Press ESC or click outside to close
             </div>
           </div>
         </DialogContent>
