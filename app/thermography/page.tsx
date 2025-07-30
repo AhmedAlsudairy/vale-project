@@ -1713,7 +1713,7 @@ export default function ThermographyPage() {
                   ))}
                 </div>
                 
-                {/* Gallery Instructions heree */}
+                {/* Gallery Instructions h */}
                 <div className="mt-4 text-center text-sm text-muted-foreground">
                   <div className="hidden sm:block">
                     Use arrow buttons to navigate • Click any image to view in full screen
