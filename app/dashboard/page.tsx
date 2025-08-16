@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
-import { Line, LineChart, XAxis, YAxis, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from "recharts"
+import { ChartContainer } from "@/components/ui/chart"
+import { Line, LineChart, XAxis, YAxis, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell, Tooltip } from "recharts"
 import { AlertTriangle, Calendar, CheckCircle, Wrench, Activity, Clock, Shield, Target, Gauge } from "lucide-react"
 import Link from "next/link"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -396,7 +396,24 @@ export default function DashboardPage() {
                   <LineChart data={trendData}>
                     <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Tooltip 
+                      content={({ active, payload, label }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="bg-background border rounded-lg p-2 shadow-md">
+                              <p className="font-medium">{label}</p>
+                              {payload.map((entry: any, index: number) => (
+                                <p key={index} className="text-sm">
+                                  <span style={{ color: entry.color }}>{entry.name}: </span>
+                                  {entry.value}
+                                </p>
+                              ))}
+                            </div>
+                          )
+                        }
+                        return null
+                      }}
+                    />
                     <Line
                       type="monotone"
                       dataKey="measurement"
@@ -442,7 +459,7 @@ export default function DashboardPage() {
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <ChartTooltip
+                    <Tooltip
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           const data = payload[0].payload
@@ -577,7 +594,24 @@ export default function DashboardPage() {
                 >
                   <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
                   <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Tooltip 
+                    content={({ active, payload, label }) => {
+                      if (active && payload && payload.length) {
+                        return (
+                          <div className="bg-background border rounded-lg p-2 shadow-md">
+                            <p className="font-medium">{label}</p>
+                            {payload.map((entry: any, index: number) => (
+                              <p key={index} className="text-sm">
+                                <span style={{ color: entry.color }}>{entry.name}: </span>
+                                {entry.value}
+                              </p>
+                            ))}
+                          </div>
+                        )
+                      }
+                      return null
+                    }}
+                  />
                   <Bar dataKey="value" fill="hsl(var(--chart-1))" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="target" fill="hsl(var(--chart-2))" radius={[4, 4, 0, 0]} opacity={0.3} />
                 </BarChart>

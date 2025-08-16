@@ -1,7 +1,7 @@
 import { neon } from "@neondatabase/serverless"
 import { prisma } from "./prisma"
 
-export const sql = neon(process.env.DATABASE_URL)
+export const sql = neon(process.env.DATABASE_URL!)
 export { prisma }
 
 export interface CarbonBrushRecord {
