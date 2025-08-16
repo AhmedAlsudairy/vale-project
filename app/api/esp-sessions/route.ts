@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { espCode, inspectionDate, month, doneBy, transformers, remarks } = body
+    const { espCode, equipmentName, equipmentType, inspectionDate, month, doneBy, transformers, remarks } = body
 
     // Check if ESP equipment exists in equipment master, if not create it
     let equipment = await prisma.equipmentMaster.findUnique({
@@ -38,21 +38,59 @@ export async function POST(request: NextRequest) {
     })
 
     if (!equipment) {
-      // Create ESP equipment in equipment master if it doesn't exist
-      equipment = await prisma.equipmentMaster.create({
-        data: {
-          tagNo: espCode,
-          equipmentName: `ESP Equipment ${espCode}`,
-          equipmentType: 'ESP (Electrostatic Precipitator)',
-          location: 'Main Plant'
-          // QR code will be generated when user clicks "Generate" button
+      try {
+        // Import QR generation utility
+        const { generateQR } = await import('@/lib/qr-utils')
+        
+        // Create ESP equipment in equipment master if it doesn't exist
+        equipment = await prisma.equipmentMaster.create({
+          data: {
+            tagNo: espCode,
+            equipmentName: equipmentName || `ESP Equipment ${espCode}`,
+            equipmentType: equipmentType || 'ESP (Electrostatic Precipitator)',
+            location: 'Main Plant'
+            // QR code will be generated after creation
+          }
+        })
+        
+        // Generate QR code for the new equipment
+        try {
+          const qrCodeDataUrl = await generateQR(equipment.id, 'equipment')
+          
+          // Update equipment with QR code
+          equipment = await prisma.equipmentMaster.update({
+            where: { id: equipment.id },
+            data: { qrCode: qrCodeDataUrl }
+          })
+          
+          console.log(`✅ Created new ESP equipment: ${espCode} - ${equipmentName} with QR code`)
+        } catch (qrError) {
+          console.error('❌ Failed to generate QR code for ESP equipment:', qrError)
+          console.log(`⚠️ Created new ESP equipment: ${espCode} - ${equipmentName} (without QR code)`)
         }
-      })
-      console.log(`Created new ESP equipment: ${espCode}`)
+      } catch (equipmentError) {
+        console.error('❌ Failed to create ESP equipment:', equipmentError)
+        throw new Error('Failed to create ESP equipment')
+      }
     }
 
+    // Ensure we always have 3 transformer records (TF1, TF2, TF3) for ESP
+    const defaultTransformers = [
+      { transformerNo: 'TF1', step: 1 },
+      { transformerNo: 'TF2', step: 2 },
+      { transformerNo: 'TF3', step: 3 }
+    ]
+
+    // Use provided transformers or default to empty TF1, TF2, TF3 records
+    const espTransformers = (transformers && transformers.length > 0) 
+      ? transformers 
+      : defaultTransformers
+
+    console.log(`📋 Creating ESP session with ${espTransformers.length} transformer records:`, 
+      espTransformers.map((t: any) => t.transformerNo).join(', '))
+
     // Calculate completion status based on actual temperature data, not relay status
-    const completedTransformers = transformers.filter((transformer: any) => {
+    const completedTransformers = espTransformers.filter((transformer: any) => {
       // Check if transformer has at least one meaningful temperature measurement
       return (
         (transformer.mccbIcRPhase && parseFloat(transformer.mccbIcRPhase) > 0) ||
@@ -75,8 +113,8 @@ export async function POST(request: NextRequest) {
         isCompleted: completedTransformers === 3, // Only completed when ALL 3 transformers have actual data
         remarks,
         transformerRecords: {
-          create: transformers.map((transformer: any, index: number) => ({
-            transformerNo: transformer.transformerNo,
+          create: espTransformers.map((transformer: any, index: number) => ({
+            transformerNo: transformer.transformerNo || `TF${index + 1}`,
             step: index + 1,
             mccbIcRPhase: parseFloat(transformer.mccbIcRPhase) || null,
             mccbIcBPhase: parseFloat(transformer.mccbIcBPhase) || null,

@@ -35,15 +35,34 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const id = Number.parseInt(resolvedParams.id)
     const body = await request.json()
 
-    const { espCode, inspectionDate, month, doneBy, transformers, remarks } = body
+    const { espCode, equipmentName, equipmentType, inspectionDate, month, doneBy, transformers, remarks } = body
+
+    console.log('Updating ESP session:', id, 'with transformers:', transformers?.length || 0)
+
+    // Calculate completion status based on actual temperature data
+    const completedTransformers = (transformers || []).filter((transformer: any) => {
+      // Check if transformer has at least one meaningful temperature measurement
+      return (
+        (transformer.mccbIcRPhase && parseFloat(transformer.mccbIcRPhase) > 0) ||
+        (transformer.mccbIcBPhase && parseFloat(transformer.mccbIcBPhase) > 0) ||
+        (transformer.mccbCOg1 && parseFloat(transformer.mccbCOg1) > 0) ||
+        (transformer.mccbCOg2 && parseFloat(transformer.mccbCOg2) > 0) ||
+        (transformer.mccbBodyTemp && parseFloat(transformer.mccbBodyTemp) > 0) ||
+        (transformer.scrCoolingFinsTemp && parseFloat(transformer.scrCoolingFinsTemp) > 0)
+      )
+    }).length
+
+    console.log('Completed transformers:', completedTransformers)
 
     const session = await prisma.espThermographySession.update({
       where: { id },
       data: {
         espCode,
         inspectionDate: new Date(inspectionDate),
-        month,
+        month: parseInt(month),
         doneBy,
+        step: Math.max(1, completedTransformers),
+        isCompleted: completedTransformers === 3,
         remarks,
       },
       include: {
@@ -60,27 +79,41 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         where: { sessionId: id }
       })
 
+      // Ensure we always have 3 transformer records (TF1, TF2, TF3) for ESP
+      const defaultTransformers = [
+        { transformerNo: 'TF1', step: 1 },
+        { transformerNo: 'TF2', step: 2 },
+        { transformerNo: 'TF3', step: 3 }
+      ]
+
+      // Use provided transformers or default to empty TF1, TF2, TF3 records
+      const espTransformers = transformers.length > 0 ? transformers : defaultTransformers
+
       // Create new transformer records
-      if (transformers.length > 0) {
+      if (espTransformers.length > 0) {
         await prisma.espTransformerRecord.createMany({
-          data: transformers.map((transformer: any, index: number) => ({
+          data: espTransformers.map((transformer: any, index: number) => ({
             sessionId: id,
             transformerNo: transformer.transformerNo || `TF${index + 1}`,
-            step: transformer.step,
-            mccbIcRPhase: transformer.mccbIcRPhase,
-            mccbIcBPhase: transformer.mccbIcBPhase,
-            mccbCOg1: transformer.mccbCOg1,
-            mccbCOg2: transformer.mccbCOg2,
-            mccbBodyTemp: transformer.mccbBodyTemp,
-            kvMa: transformer.kvMa,
-            spMin: transformer.spMin,
-            scrCoolingFinsTemp: transformer.scrCoolingFinsTemp,
-            scrCoolingFan: transformer.scrCoolingFan,
-            panelExhaustFan: transformer.panelExhaustFan,
-            mccForcedCoolingFanTemp: transformer.mccForcedCoolingFanTemp,
+            step: index + 1,
+            mccbIcRPhase: parseFloat(transformer.mccbIcRPhase) || null,
+            mccbIcBPhase: parseFloat(transformer.mccbIcBPhase) || null,
+            mccbCOg1: parseFloat(transformer.mccbCOg1) || null,
+            mccbCOg2: parseFloat(transformer.mccbCOg2) || null,
+            mccbBodyTemp: parseFloat(transformer.mccbBodyTemp) || null,
+            kvMa: transformer.kvMa || null,
+            spMin: transformer.spMin || null,
+            scrCoolingFinsTemp: parseFloat(transformer.scrCoolingFinsTemp) || null,
+            scrCoolingFan: transformer.scrCoolingFan || null,
+            panelExhaustFan: transformer.panelExhaustFan || null,
+            mccForcedCoolingFanTemp: transformer.mccForcedCoolingFanTemp || null, // Keep as string
+            rdi68: transformer.rdi68 || null,
+            rdi69: transformer.rdi69 || null,
+            rdi70: transformer.rdi70 || null,
             remark: transformer.remark || null
           }))
         })
+        console.log('Created', espTransformers.length, 'transformer records for session', id)
       }
     }
 

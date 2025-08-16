@@ -48,20 +48,15 @@ interface TransformerRecord {
   id: number
   transformerNo: string
   step: number
-  mccbIcRPhase?: number
-  mccbIcBPhase?: number
-  mccbCOg1?: number
-  mccbCOg2?: number
-  mccbBodyTemp?: number
-  kvMa?: string
-  spMin?: string
-  scrCoolingFinsTemp?: number
-  scrCoolingFan?: string
-  panelExhaustFan?: string
-  mccForcedCoolingFanTemp?: string
-  rdi68?: string
-  rdi69?: string
-  rdi70?: string
+  mccbIcRPhase?: number      // MCCB R-Phase (°C)
+  mccbIcBPhase?: number      // MCCB B-Phase (°C)
+  mccbCOg1?: number          // MCCB C O/G-1 (°C)
+  mccbCOg2?: number          // MCCB C O/G-2 (°C)
+  mccbBodyTemp?: number      // MCCB Body (°C)
+  scrCoolingFinsTemp?: number // SCR Cooling Fins (°C)
+  rdi68?: string            // RDI-68 on/off
+  rdi69?: string            // RDI-69 on/off
+  rdi70?: string            // RDI-70 on/off
 }
 
 const months = [
@@ -79,7 +74,7 @@ const months = [
   { value: 12, label: 'December' }
 ]
 
-const espCodes = ['ESP-01', 'ESP-02', 'ESP-03', 'ESP-04', 'ESP-05']
+const staticEspCodes = ['ESP-01', 'ESP-02', 'ESP-03', 'ESP-04', 'ESP-05']
 const transformers = ['TF1', 'TF2', 'TF3']
 const equipmentTypes = [
   'ESP (Electrostatic Precipitator)',
@@ -95,6 +90,15 @@ export default function ThermographyPage() {
   
   const [sessions, setSessions] = useState<EspSession[]>([])
   const [equipment, setEquipment] = useState<Equipment[]>([])
+  
+  // Dynamic ESP codes: combine static codes with existing ESP equipment from database
+  const espCodes = [
+    ...staticEspCodes,
+    ...equipment
+      .filter(eq => eq.equipmentType.toLowerCase().includes('esp'))
+      .map(eq => eq.tagNo)
+      .filter(tagNo => !staticEspCodes.includes(tagNo))
+  ]
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showForm, setShowForm] = useState(false)
@@ -136,15 +140,10 @@ export default function ThermographyPage() {
         mccbCOg1: '',
         mccbCOg2: '',
         mccbBodyTemp: '',
-        kvMa: '',
-        spMin: '',
         scrCoolingFinsTemp: '',
-        scrCoolingFan: '',
-        panelExhaustFan: '',
-        mccForcedCoolingFanTemp: '',
-        rdi68: '',
-        rdi69: '',
-        rdi70: ''
+        rdi68: 'off',
+        rdi69: 'off',
+        rdi70: 'off'
       },
       {
         transformerNo: 'TF2',
@@ -153,15 +152,10 @@ export default function ThermographyPage() {
         mccbCOg1: '',
         mccbCOg2: '',
         mccbBodyTemp: '',
-        kvMa: '',
-        spMin: '',
         scrCoolingFinsTemp: '',
-        scrCoolingFan: '',
-        panelExhaustFan: '',
-        mccForcedCoolingFanTemp: '',
-        rdi68: '',
-        rdi69: '',
-        rdi70: ''
+        rdi68: 'off',
+        rdi69: 'off',
+        rdi70: 'off'
       },
       {
         transformerNo: 'TF3',
@@ -170,8 +164,6 @@ export default function ThermographyPage() {
         mccbCOg1: '',
         mccbCOg2: '',
         mccbBodyTemp: '',
-        kvMa: '',
-        spMin: '',
         scrCoolingFinsTemp: '',
         scrCoolingFan: '',
         panelExhaustFan: '',
@@ -245,6 +237,16 @@ export default function ThermographyPage() {
   const handleSubmit = async () => {
     if (isSubmitting) return
     
+    // Validate required fields
+    if (!formData.espCode || !formData.equipmentName || !formData.equipmentType || !formData.inspectionDate || !formData.month) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields (ESP Code, Equipment Name, Equipment Type, Inspection Date, Month)",
+        variant: "destructive"
+      })
+      return
+    }
+    
     try {
       setIsSubmitting(true)
       
@@ -256,7 +258,7 @@ export default function ThermographyPage() {
         month: parseInt(formData.month),
         doneBy: formData.doneBy,
         remarks: formData.remarks,
-        transformerRecords: formData.transformers.map(t => ({
+        transformers: formData.transformers.map(t => ({
           ...t,
           mccbIcRPhase: t.mccbIcRPhase ? parseFloat(t.mccbIcRPhase) : undefined,
           mccbIcBPhase: t.mccbIcBPhase ? parseFloat(t.mccbIcBPhase) : undefined,
@@ -264,7 +266,8 @@ export default function ThermographyPage() {
           mccbCOg2: t.mccbCOg2 ? parseFloat(t.mccbCOg2) : undefined,
           mccbBodyTemp: t.mccbBodyTemp ? parseFloat(t.mccbBodyTemp) : undefined,
           scrCoolingFinsTemp: t.scrCoolingFinsTemp ? parseFloat(t.scrCoolingFinsTemp) : undefined,
-          mccForcedCoolingFanTemp: t.mccForcedCoolingFanTemp ? parseFloat(t.mccForcedCoolingFanTemp) : undefined
+          // Keep mccForcedCoolingFanTemp as string (it's a status, not temperature)
+          mccForcedCoolingFanTemp: t.mccForcedCoolingFanTemp || undefined
         }))
       }
       
@@ -292,7 +295,10 @@ export default function ThermographyPage() {
       setShowForm(false)
       setEditingSession(null)
       resetForm()
-      await fetchSessions()
+      await Promise.all([
+        fetchSessions(),
+        fetchEquipment() // Also refresh equipment list in case new equipment was created
+      ])
     } catch (error) {
       toast({
         title: "Error",
@@ -317,20 +323,17 @@ export default function ThermographyPage() {
         {
           transformerNo: 'TF1',
           mccbIcRPhase: '', mccbIcBPhase: '', mccbCOg1: '', mccbCOg2: '', mccbBodyTemp: '',
-          kvMa: '', spMin: '', scrCoolingFinsTemp: '', scrCoolingFan: '', panelExhaustFan: '',
-          mccForcedCoolingFanTemp: '', rdi68: '', rdi69: '', rdi70: ''
+          scrCoolingFinsTemp: '', rdi68: 'off', rdi69: 'off', rdi70: 'off'
         },
         {
           transformerNo: 'TF2',
           mccbIcRPhase: '', mccbIcBPhase: '', mccbCOg1: '', mccbCOg2: '', mccbBodyTemp: '',
-          kvMa: '', spMin: '', scrCoolingFinsTemp: '', scrCoolingFan: '', panelExhaustFan: '',
-          mccForcedCoolingFanTemp: '', rdi68: '', rdi69: '', rdi70: ''
+          scrCoolingFinsTemp: '', rdi68: 'off', rdi69: 'off', rdi70: 'off'
         },
         {
           transformerNo: 'TF3',
           mccbIcRPhase: '', mccbIcBPhase: '', mccbCOg1: '', mccbCOg2: '', mccbBodyTemp: '',
-          kvMa: '', spMin: '', scrCoolingFinsTemp: '', scrCoolingFan: '', panelExhaustFan: '',
-          mccForcedCoolingFanTemp: '', rdi68: '', rdi69: '', rdi70: ''
+          scrCoolingFinsTemp: '', rdi68: 'off', rdi69: 'off', rdi70: 'off'
         }
       ]
     })
@@ -338,6 +341,60 @@ export default function ThermographyPage() {
 
   const handleEditSession = (session: EspSession) => {
     setEditingSession(session)
+    
+    // If session has no transformer records, create default TF1, TF2, TF3
+    const transformers = session.transformerRecords.length > 0 
+      ? session.transformerRecords.map(record => ({
+          transformerNo: record.transformerNo,
+          mccbIcRPhase: record.mccbIcRPhase?.toString() || '',
+          mccbIcBPhase: record.mccbIcBPhase?.toString() || '',
+          mccbCOg1: record.mccbCOg1?.toString() || '',
+          mccbCOg2: record.mccbCOg2?.toString() || '',
+          mccbBodyTemp: record.mccbBodyTemp?.toString() || '',
+          scrCoolingFinsTemp: record.scrCoolingFinsTemp?.toString() || '',
+          rdi68: record.rdi68 || 'off',
+          rdi69: record.rdi69 || 'off',
+          rdi70: record.rdi70 || 'off'
+        }))
+      : [
+          {
+            transformerNo: 'TF1',
+            mccbIcRPhase: '',
+            mccbIcBPhase: '',
+            mccbCOg1: '',
+            mccbCOg2: '',
+            mccbBodyTemp: '',
+            scrCoolingFinsTemp: '',
+            rdi68: 'off',
+            rdi69: 'off',
+            rdi70: 'off'
+          },
+          {
+            transformerNo: 'TF2',
+            mccbIcRPhase: '',
+            mccbIcBPhase: '',
+            mccbCOg1: '',
+            mccbCOg2: '',
+            mccbBodyTemp: '',
+            scrCoolingFinsTemp: '',
+            rdi68: 'off',
+            rdi69: 'off',
+            rdi70: 'off'
+          },
+          {
+            transformerNo: 'TF3',
+            mccbIcRPhase: '',
+            mccbIcBPhase: '',
+            mccbCOg1: '',
+            mccbCOg2: '',
+            mccbBodyTemp: '',
+            scrCoolingFinsTemp: '',
+            rdi68: 'off',
+            rdi69: 'off',
+            rdi70: 'off'
+          }
+        ]
+    
     setFormData({
       espCode: session.espCode,
       equipmentName: '',
@@ -346,23 +403,7 @@ export default function ThermographyPage() {
       month: session.month.toString(),
       doneBy: session.doneBy || '',
       remarks: session.remarks || '',
-      transformers: session.transformerRecords.map(record => ({
-        transformerNo: record.transformerNo,
-        mccbIcRPhase: record.mccbIcRPhase?.toString() || '',
-        mccbIcBPhase: record.mccbIcBPhase?.toString() || '',
-        mccbCOg1: record.mccbCOg1?.toString() || '',
-        mccbCOg2: record.mccbCOg2?.toString() || '',
-        mccbBodyTemp: record.mccbBodyTemp?.toString() || '',
-        kvMa: record.kvMa || '',
-        spMin: record.spMin || '',
-        scrCoolingFinsTemp: record.scrCoolingFinsTemp?.toString() || '',
-        scrCoolingFan: record.scrCoolingFan || '',
-        panelExhaustFan: record.panelExhaustFan || '',
-        mccForcedCoolingFanTemp: record.mccForcedCoolingFanTemp || '',
-        rdi68: record.rdi68 || '',
-        rdi69: record.rdi69 || '',
-        rdi70: record.rdi70 || ''
-      }))
+      transformers
     })
     setShowForm(true)
   }
@@ -400,6 +441,11 @@ export default function ThermographyPage() {
   }
 
   const getCompletedTransformersCount = (session: EspSession) => {
+    // If no transformer records exist, return 0
+    if (session.transformerRecords.length === 0) {
+      return 0
+    }
+    
     return session.transformerRecords.filter(record => 
       record.mccbIcRPhase && record.mccbIcBPhase && record.mccbBodyTemp
     ).length
@@ -464,12 +510,7 @@ export default function ThermographyPage() {
           'MCCB C O/G-1 (°C)': record.mccbCOg1 || '',
           'MCCB C O/G-2 (°C)': record.mccbCOg2 || '',
           'MCCB Body Temp (°C)': record.mccbBodyTemp || '',
-          'kV/mA': record.kvMa || '',
-          'SP/min': record.spMin || '',
           'SCR Cooling Fins Temp (°C)': record.scrCoolingFinsTemp || '',
-          'SCR Cooling Fan': record.scrCoolingFan || '',
-          'Panel Exhaust Fan': record.panelExhaustFan || '',
-          'MCC Forced Cooling Fan Temp': record.mccForcedCoolingFanTemp || '',
           'RDI-68 Relay': record.rdi68 || '',
           'RDI-69 Relay': record.rdi69 || '',
           'RDI-70 Relay': record.rdi70 || '',
@@ -635,16 +676,57 @@ export default function ThermographyPage() {
             <CardContent>
               <form onSubmit={(e) => { e.preventDefault(); handleSubmit(); }} className="space-y-6">
                 {/* Basic Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="espCode">ESP Code *</Label>
                     <Combobox
                       value={formData.espCode}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, espCode: value }))}
+                      onValueChange={(value) => {
+                        setFormData(prev => ({
+                          ...prev, 
+                          espCode: value,
+                          // Auto-fill equipment name only if it's currently empty
+                          equipmentName: !prev.equipmentName ? `ESP Equipment ${value}` : prev.equipmentName,
+                          // Auto-select default equipment type only if it's currently empty
+                          equipmentType: !prev.equipmentType ? 'ESP (Electrostatic Precipitator)' : prev.equipmentType
+                        }))
+                      }}
                       options={espCodes.map(code => ({ value: code, label: code }))}
                       placeholder="Select or type ESP code"
+                      allowCustom={true}
+                      searchPlaceholder="Search or type new ESP code..."
+                      emptyText="Type to create new ESP code"
                       className="w-full"
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      You can type a new ESP code if it doesn't exist
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="equipmentName">Equipment Name *</Label>
+                    <Input
+                      id="equipmentName"
+                      value={formData.equipmentName}
+                      onChange={(e) => setFormData(prev => ({ ...prev, equipmentName: e.target.value }))}
+                      placeholder="Equipment name"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="equipmentType">Equipment Type *</Label>
+                    <Select value={formData.equipmentType} onValueChange={(value) => setFormData(prev => ({ ...prev, equipmentType: value }))}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select equipment type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {equipmentTypes.map(type => (
+                          <SelectItem key={type} value={type}>
+                            {type}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   
                   <div>
@@ -712,15 +794,140 @@ export default function ThermographyPage() {
 
                 {/* Transformer Records */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Transformer Temperature Readings</h3>
-                  {formData.transformers.map((transformer, index) => (
-                    <Card key={index} className="p-4">
-                      <CardHeader className="p-0 pb-4">
-                        <CardTitle className="text-base">{transformer.transformerNo}</CardTitle>
-                      </CardHeader>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold">Transformer Temperature Readings</h3>
+                    <div className="flex items-center gap-4">
+                      <div className="text-sm text-gray-600">
+                        Progress: {formData.transformers.filter(t => 
+                          !!(t.mccbIcRPhase || t.mccbIcBPhase || t.mccbCOg1 || t.mccbCOg2 || t.mccbBodyTemp || t.scrCoolingFinsTemp)
+                        ).length} / {formData.transformers.length} Transformers
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Step Progress Indicator */}
+                  <div className="flex items-center justify-center gap-4 py-4 bg-gray-50 rounded-lg">
+                    {formData.transformers.map((transformer, index) => {
+                      const isCompleted = !!(
+                        transformer.mccbIcRPhase || transformer.mccbIcBPhase ||
+                        transformer.mccbCOg1 || transformer.mccbCOg2 ||
+                        transformer.mccbBodyTemp || transformer.scrCoolingFinsTemp
+                      )
+                      
+                      return (
+                        <div key={index} className="flex flex-col items-center gap-2">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold ${
+                            isCompleted 
+                              ? 'bg-green-600 text-white' 
+                              : 'bg-gray-300 text-gray-600'
+                          }`}>
+                            {isCompleted ? <CheckCircle className="h-5 w-5" /> : index + 1}
+                          </div>
+                          <div className="text-xs font-medium">{transformer.transformerNo}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  
+                  {/* Helper Text */}
+                  <div className="text-sm text-blue-600 bg-blue-50 p-3 rounded-lg border border-blue-200">
+                    💡 <strong>Tip:</strong> You can complete transformers one at a time. Enter data for TF1, save, then return later to complete TF2 and TF3.
+                  </div>
+                  
+                  {/* Quick Focus Buttons */}
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {/* Next Incomplete Button */}
+                    {(() => {
+                      const nextIncomplete = formData.transformers.findIndex(transformer => 
+                        !(transformer.mccbIcRPhase || transformer.mccbIcBPhase ||
+                          transformer.mccbCOg1 || transformer.mccbCOg2 ||
+                          transformer.mccbBodyTemp || transformer.scrCoolingFinsTemp)
+                      )
+                      
+                      if (nextIncomplete !== -1) {
+                        return (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => {
+                              const element = document.getElementById(`transformer-${nextIncomplete}`)
+                              element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                            }}
+                            className="bg-orange-100 hover:bg-orange-200 text-orange-800 border-orange-300"
+                          >
+                            <ChevronRight className="h-4 w-4 mr-1" />
+                            Next: {formData.transformers[nextIncomplete].transformerNo}
+                          </Button>
+                        )
+                      }
+                      return null
+                    })()}
+                    
+                    {formData.transformers.map((transformer, index) => {
+                      const isCompleted = !!(
+                        transformer.mccbIcRPhase || transformer.mccbIcBPhase ||
+                        transformer.mccbCOg1 || transformer.mccbCOg2 ||
+                        transformer.mccbBodyTemp || transformer.scrCoolingFinsTemp
+                      )
+                      
+                      return (
+                        <Button
+                          key={index}
+                          type="button"
+                          variant={isCompleted ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            // Scroll to the transformer card
+                            const element = document.getElementById(`transformer-${index}`)
+                            element?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                          }}
+                          className="flex items-center gap-1"
+                        >
+                          {isCompleted ? (
+                            <CheckCircle className="h-4 w-4" />
+                          ) : (
+                            <Clock className="h-4 w-4" />
+                          )}
+                          Focus on {transformer.transformerNo}
+                        </Button>
+                      )
+                    })}
+                  </div>
+                  {formData.transformers.map((transformer, index) => {
+                    // Check if transformer has any temperature data entered
+                    const hasTemperatureData = !!(
+                      transformer.mccbIcRPhase || transformer.mccbIcBPhase ||
+                      transformer.mccbCOg1 || transformer.mccbCOg2 ||
+                      transformer.mccbBodyTemp || transformer.scrCoolingFinsTemp
+                    )
+                    
+                    return (
+                      <Card key={index} id={`transformer-${index}`} className={`p-4 ${hasTemperatureData ? 'border-green-500 bg-green-50/70' : 'border-gray-200'}`}>
+                        <CardHeader className="p-0 pb-4">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-base flex items-center gap-2">
+                              {hasTemperatureData ? (
+                                <CheckCircle className="h-5 w-5 text-green-600" />
+                              ) : (
+                                <Clock className="h-5 w-5 text-gray-400" />
+                              )}
+                              <span className={hasTemperatureData ? "text-green-800 font-semibold" : ""}>
+                                {transformer.transformerNo}
+                              </span>
+                              <span className={`text-sm font-normal ${hasTemperatureData ? "text-green-700" : "text-gray-500"}`}>
+                                Step {index + 1}
+                              </span>
+                            </CardTitle>
+                            <Badge variant={hasTemperatureData ? "default" : "secondary"}
+                                   className={hasTemperatureData ? "bg-green-600 hover:bg-green-700 text-white" : ""}>
+                              {hasTemperatureData ? "Completed" : "Pending"}
+                            </Badge>
+                          </div>
+                        </CardHeader>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         <div>
-                          <Label>MCCB IC R-Phase (°C)</Label>
+                          <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>MCCB IC R-Phase (°C)</Label>
                           <Input
                             type="number"
                             step="0.1"
@@ -729,7 +936,7 @@ export default function ThermographyPage() {
                           />
                         </div>
                         <div>
-                          <Label>MCCB IC B-Phase (°C)</Label>
+                          <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>MCCB IC B-Phase (°C)</Label>
                           <Input
                             type="number"
                             step="0.1"
@@ -738,7 +945,7 @@ export default function ThermographyPage() {
                           />
                         </div>
                         <div>
-                          <Label>MCCB C O/G-1 (°C)</Label>
+                          <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>MCCB C O/G-1 (°C)</Label>
                           <Input
                             type="number"
                             step="0.1"
@@ -747,7 +954,7 @@ export default function ThermographyPage() {
                           />
                         </div>
                         <div>
-                          <Label>MCCB C O/G-2 (°C)</Label>
+                          <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>MCCB C O/G-2 (°C)</Label>
                           <Input
                             type="number"
                             step="0.1"
@@ -756,7 +963,7 @@ export default function ThermographyPage() {
                           />
                         </div>
                         <div>
-                          <Label>MCCB Body Temp (°C)</Label>
+                          <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>MCCB Body Temp (°C)</Label>
                           <Input
                             type="number"
                             step="0.1"
@@ -765,7 +972,7 @@ export default function ThermographyPage() {
                           />
                         </div>
                         <div>
-                          <Label>SCR Cooling Fins Temp (°C)</Label>
+                          <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>SCR Cooling Fins Temp (°C)</Label>
                           <Input
                             type="number"
                             step="0.1"
@@ -774,64 +981,54 @@ export default function ThermographyPage() {
                           />
                         </div>
                         <div>
-                          <Label>kV/mA</Label>
-                          <Input
-                            value={transformer.kvMa}
-                            onChange={(e) => updateTransformer(index, 'kvMa', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>SP/min</Label>
-                          <Input
-                            value={transformer.spMin}
-                            onChange={(e) => updateTransformer(index, 'spMin', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>SCR Cooling Fan</Label>
-                          <Input
-                            value={transformer.scrCoolingFan}
-                            onChange={(e) => updateTransformer(index, 'scrCoolingFan', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>Panel Exhaust Fan</Label>
-                          <Input
-                            value={transformer.panelExhaustFan}
-                            onChange={(e) => updateTransformer(index, 'panelExhaustFan', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>MCC Forced Cooling Fan Temp</Label>
-                          <Input
-                            value={transformer.mccForcedCoolingFanTemp}
-                            onChange={(e) => updateTransformer(index, 'mccForcedCoolingFanTemp', e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <Label>RDI-68 Relay</Label>
-                          <Input
+                          <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>RDI-68 Relay</Label>
+                          <Select
                             value={transformer.rdi68}
-                            onChange={(e) => updateTransformer(index, 'rdi68', e.target.value)}
-                          />
+                            onValueChange={(value) => updateTransformer(index, 'rdi68', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="on">On</SelectItem>
+                              <SelectItem value="off">Off</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div>
-                          <Label>RDI-69 Relay</Label>
-                          <Input
+                          <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>RDI-69 Relay</Label>
+                          <Select
                             value={transformer.rdi69}
-                            onChange={(e) => updateTransformer(index, 'rdi69', e.target.value)}
-                          />
+                            onValueChange={(value) => updateTransformer(index, 'rdi69', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="on">On</SelectItem>
+                              <SelectItem value="off">Off</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div>
-                          <Label>RDI-70 Relay</Label>
-                          <Input
+                          <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>RDI-70 Relay</Label>
+                          <Select
                             value={transformer.rdi70}
-                            onChange={(e) => updateTransformer(index, 'rdi70', e.target.value)}
-                          />
+                            onValueChange={(value) => updateTransformer(index, 'rdi70', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="on">On</SelectItem>
+                              <SelectItem value="off">Off</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
                     </Card>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 {/* Form Actions */}
@@ -1065,7 +1262,17 @@ export default function ThermographyPage() {
                     <CollapsibleContent className="mt-3 sm:mt-4">
                       {/* Mobile Card View - Hidden on Desktop */}
                       <div className="lg:hidden space-y-2 sm:space-y-3">
-                        {session.transformerRecords.map((record) => {
+                        {(() => {
+                          // If no transformer records exist, show default TF1, TF2, TF3 placeholders
+                          const transformerRecords = session.transformerRecords.length > 0 
+                            ? session.transformerRecords 
+                            : [
+                                { id: 0, transformerNo: 'TF1', step: 1, mccbIcRPhase: null, mccbIcBPhase: null, mccbCOg1: null, mccbCOg2: null, mccbBodyTemp: null, scrCoolingFinsTemp: null, rdi68: null, rdi69: null, rdi70: null },
+                                { id: 1, transformerNo: 'TF2', step: 2, mccbIcRPhase: null, mccbIcBPhase: null, mccbCOg1: null, mccbCOg2: null, mccbBodyTemp: null, scrCoolingFinsTemp: null, rdi68: null, rdi69: null, rdi70: null },
+                                { id: 2, transformerNo: 'TF3', step: 3, mccbIcRPhase: null, mccbIcBPhase: null, mccbCOg1: null, mccbCOg2: null, mccbBodyTemp: null, scrCoolingFinsTemp: null, rdi68: null, rdi69: null, rdi70: null }
+                              ]
+                          
+                          return transformerRecords.map((record) => {
                           const maxTemp = Math.max(
                             record.mccbIcRPhase || 0,
                             record.mccbIcBPhase || 0,
@@ -1129,7 +1336,8 @@ export default function ThermographyPage() {
                               </div>
                             </Card>
                           )
-                        })}
+                        })
+                        })()}
                       </div>
 
                       {/* Desktop Table View - Hidden on Mobile */}
@@ -1151,7 +1359,17 @@ export default function ThermographyPage() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {session.transformerRecords.map((record) => {
+                            {(() => {
+                              // If no transformer records exist, show default TF1, TF2, TF3 placeholders
+                              const transformerRecords = session.transformerRecords.length > 0 
+                                ? session.transformerRecords 
+                                : [
+                                    { id: 0, transformerNo: 'TF1', step: 1, mccbIcRPhase: null, mccbIcBPhase: null, mccbCOg1: null, mccbCOg2: null, mccbBodyTemp: null, scrCoolingFinsTemp: null, rdi68: null, rdi69: null, rdi70: null },
+                                    { id: 1, transformerNo: 'TF2', step: 2, mccbIcRPhase: null, mccbIcBPhase: null, mccbCOg1: null, mccbCOg2: null, mccbBodyTemp: null, scrCoolingFinsTemp: null, rdi68: null, rdi69: null, rdi70: null },
+                                    { id: 2, transformerNo: 'TF3', step: 3, mccbIcRPhase: null, mccbIcBPhase: null, mccbCOg1: null, mccbCOg2: null, mccbBodyTemp: null, scrCoolingFinsTemp: null, rdi68: null, rdi69: null, rdi70: null }
+                                  ]
+                              
+                              return transformerRecords.map((record: any) => {
                               const maxTemp = Math.max(
                                 record.mccbIcRPhase || 0,
                                 record.mccbIcBPhase || 0,
@@ -1193,7 +1411,8 @@ export default function ThermographyPage() {
                                   <TableCell className="text-xs">{record.rdi70 || '-'}</TableCell>
                                 </TableRow>
                               )
-                            })}
+                            })
+                            })()}
                           </TableBody>
                         </Table>
                       </div>

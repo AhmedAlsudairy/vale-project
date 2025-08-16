@@ -56,7 +56,7 @@ export function Combobox({
             className,
           )}
         >
-          <span className="truncate">{selectedOption ? selectedOption.label : placeholder}</span>
+          <span className="truncate">{selectedOption ? selectedOption.label : (value || placeholder)}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
@@ -66,6 +66,14 @@ export function Combobox({
             placeholder={searchPlaceholder}
             value={searchValue}
             onValueChange={setSearchValue}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && allowCustom && searchValue && !filteredOptions.some(option => option.value.toLowerCase() === searchValue.toLowerCase())) {
+                e.preventDefault()
+                onValueChange(searchValue)
+                setOpen(false)
+                setSearchValue("")
+              }
+            }}
             className="h-9"
           />
           <CommandList>
@@ -78,10 +86,10 @@ export function Combobox({
                     onClick={() => {
                       if (onAddNew) {
                         onAddNew(searchValue)
-                        onValueChange(searchValue)
-                        setOpen(false)
-                        setSearchValue("")
                       }
+                      onValueChange(searchValue)
+                      setOpen(false)
+                      setSearchValue("")
                     }}
                   >
                     <Plus className="mr-2 h-4 w-4" />
@@ -89,7 +97,24 @@ export function Combobox({
                   </Button>
                 </div>
               ) : (
-                <div className="p-4 text-sm text-center text-muted-foreground">{emptyText}</div>
+                allowCustom && searchValue ? (
+                  <div className="p-2">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start text-sm hover:bg-accent hover:text-accent-foreground"
+                      onClick={() => {
+                        onValueChange(searchValue)
+                        setOpen(false)
+                        setSearchValue("")
+                      }}
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Use "{searchValue}"
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="p-4 text-sm text-center text-muted-foreground">{emptyText}</div>
+                )
               )}
             </CommandEmpty>
             <CommandGroup>
