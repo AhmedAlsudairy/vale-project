@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
       numberOfPoints,
       temperatureRecords,
       previewImage,
+      images,
       inspector
     } = body
 
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
       equipmentType,
       numberOfPoints,
       previewImage,
+      images: images || [],
       inspector
     }
 

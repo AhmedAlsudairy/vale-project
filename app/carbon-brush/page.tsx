@@ -79,16 +79,36 @@ function CarbonBrushPage() {
     work_order_no: "",
     done_by: "",
     measurements: {
-      "1A": 0,
-      "1B": 0,
-      "2A": 0,
-      "2B": 0,
-      "3A": 0,
-      "3B": 0,
-      "4A": 0,
-      "4B": 0,
-      "5A": 0,
-      "5B": 0,
+      "1A_inner": 0,
+      "1A_center": 0,
+      "1A_outer": 0,
+      "1B_inner": 0,
+      "1B_center": 0,
+      "1B_outer": 0,
+      "2A_inner": 0,
+      "2A_center": 0,
+      "2A_outer": 0,
+      "2B_inner": 0,
+      "2B_center": 0,
+      "2B_outer": 0,
+      "3A_inner": 0,
+      "3A_center": 0,
+      "3A_outer": 0,
+      "3B_inner": 0,
+      "3B_center": 0,
+      "3B_outer": 0,
+      "4A_inner": 0,
+      "4A_center": 0,
+      "4A_outer": 0,
+      "4B_inner": 0,
+      "4B_center": 0,
+      "4B_outer": 0,
+      "5A_inner": 0,
+      "5A_center": 0,
+      "5A_outer": 0,
+      "5B_inner": 0,
+      "5B_center": 0,
+      "5B_outer": 0,
     },
     slip_ring_thickness: 0,
     slip_ring_ir: 0,
@@ -310,16 +330,36 @@ function CarbonBrushPage() {
           work_order_no: "",
           done_by: "",
           measurements: {
-            "1A": 0,
-            "1B": 0,
-            "2A": 0,
-            "2B": 0,
-            "3A": 0,
-            "3B": 0,
-            "4A": 0,
-            "4B": 0,
-            "5A": 0,
-            "5B": 0,
+            "1A_inner": 0,
+            "1A_center": 0,
+            "1A_outer": 0,
+            "1B_inner": 0,
+            "1B_center": 0,
+            "1B_outer": 0,
+            "2A_inner": 0,
+            "2A_center": 0,
+            "2A_outer": 0,
+            "2B_inner": 0,
+            "2B_center": 0,
+            "2B_outer": 0,
+            "3A_inner": 0,
+            "3A_center": 0,
+            "3A_outer": 0,
+            "3B_inner": 0,
+            "3B_center": 0,
+            "3B_outer": 0,
+            "4A_inner": 0,
+            "4A_center": 0,
+            "4A_outer": 0,
+            "4B_inner": 0,
+            "4B_center": 0,
+            "4B_outer": 0,
+            "5A_inner": 0,
+            "5A_center": 0,
+            "5A_outer": 0,
+            "5B_inner": 0,
+            "5B_center": 0,
+            "5B_outer": 0,
           },
           slip_ring_thickness: 0,
           slip_ring_ir: 0,
@@ -711,7 +751,7 @@ function CarbonBrushPage() {
                   </div>
                 </div>
 
-                {/* Brush Measurements - Responsive Grid */}
+                {/* Brush Measurements - Table Format */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
@@ -720,43 +760,462 @@ function CarbonBrushPage() {
                     </h3>
                     <div className="text-xs text-muted-foreground">Reference: H≥25mm, B=32mm, L=50mm</div>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 lg:grid-cols-5 gap-3 sm:gap-4">
-                    {Object.entries(formData.measurements).map(([key, value]) => (
-                      <div key={key} className="space-y-2">
-                        <Label htmlFor={key} className="text-xs sm:text-sm font-medium">
-                          Brush {key}
-                        </Label>
-                        <Input
-                          id={key}
-                          type="number"
-                          step="0.1"
-                          min="0"
-                          max="100"
-                          value={value}
-                          onChange={(e) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              measurements: { ...prev.measurements, [key]: Number.parseFloat(e.target.value) || 0 },
-                            }))
-                          }
-                          placeholder="mm"
-                          className={cn(
-                            "w-full text-sm font-medium",
-                            value > 0 && value < 25 && "border-red-400 bg-red-50 text-red-900 placeholder:text-red-400",
-                            value >= 25 && value < 32 && "border-yellow-400 bg-yellow-50 text-yellow-900 placeholder:text-yellow-600",
-                            value >= 32 && "border-green-400 bg-green-50 text-green-900 placeholder:text-green-600",
-                            value === 0 && "border-gray-300 bg-white text-gray-900 placeholder:text-gray-400"
-                          )}
-                        />
-                        {value > 0 && (
-                          <div className="text-xs text-center">
-                            {value < 25 && <span className="text-red-600 font-medium">Critical</span>}
-                            {value >= 25 && value < 32 && <span className="text-yellow-600 font-medium">Warning</span>}
-                            {value >= 32 && <span className="text-green-600 font-medium">Good</span>}
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                  
+                  {/* Measurements Table */}
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-gray-50 dark:bg-gray-700">
+                          <TableHead className="font-semibold text-center border-r text-gray-900 dark:text-gray-100">BRUSH HOLDER NUMBER</TableHead>
+                          <TableHead className="font-semibold text-center border-r text-gray-900 dark:text-gray-100">1-A mm</TableHead>
+                          <TableHead className="font-semibold text-center border-r text-gray-900 dark:text-gray-100">1-B mm</TableHead>
+                          <TableHead className="font-semibold text-center border-r text-gray-900 dark:text-gray-100">2-A mm</TableHead>
+                          <TableHead className="font-semibold text-center border-r text-gray-900 dark:text-gray-100">2-B mm</TableHead>
+                          <TableHead className="font-semibold text-center border-r text-gray-900 dark:text-gray-100">3-A mm</TableHead>
+                          <TableHead className="font-semibold text-center border-r text-gray-900 dark:text-gray-100">3-B mm</TableHead>
+                          <TableHead className="font-semibold text-center border-r text-gray-900 dark:text-gray-100">4-A mm</TableHead>
+                          <TableHead className="font-semibold text-center border-r text-gray-900 dark:text-gray-100">4-B mm</TableHead>
+                          <TableHead className="font-semibold text-center border-r text-gray-900 dark:text-gray-100">5-A mm</TableHead>
+                          <TableHead className="font-semibold text-center text-gray-900 dark:text-gray-100">5-B mm</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {/* Inner Ring Row */}
+                        <TableRow>
+                          <TableCell className="font-medium bg-gray-50 dark:bg-gray-700 border-r text-center text-gray-900 dark:text-gray-100">SLIP RING INNER</TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["1A_inner"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "1A_inner": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["1B_inner"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "1B_inner": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["2A_inner"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "2A_inner": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["2B_inner"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "2B_inner": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["3A_inner"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "3A_inner": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["3B_inner"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "3B_inner": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["4A_inner"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "4A_inner": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["4B_inner"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "4B_inner": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["5A_inner"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "5A_inner": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["5B_inner"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "5B_inner": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                        </TableRow>
+                        
+                        {/* Center Ring Row */}
+                        <TableRow>
+                          <TableCell className="font-medium bg-gray-50 dark:bg-gray-700 border-r text-center text-gray-900 dark:text-gray-100">SLIP RING CENTER</TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["1A_center"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "1A_center": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["1B_center"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "1B_center": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["2A_center"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "2A_center": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["2B_center"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "2B_center": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["3A_center"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "3A_center": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["3B_center"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "3B_center": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["4A_center"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "4A_center": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["4B_center"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "4B_center": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["5A_center"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "5A_center": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["5B_center"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "5B_center": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                        </TableRow>
+                        
+                        {/* Outer Ring Row */}
+                        <TableRow>
+                          <TableCell className="font-medium bg-gray-50 dark:bg-gray-700 border-r text-center text-gray-900 dark:text-gray-100">SLIP RING OUTER</TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["1A_outer"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "1A_outer": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["1B_outer"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "1B_outer": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["2A_outer"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "2A_outer": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["2B_outer"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "2B_outer": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["3A_outer"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "3A_outer": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["3B_outer"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "3B_outer": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["4A_outer"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "4A_outer": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["4B_outer"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "4B_outer": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="border-r p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["5A_outer"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "5A_outer": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                          <TableCell className="p-1">
+                            <Input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="100"
+                              value={formData.measurements["5B_outer"]}
+                              onChange={(e) => setFormData(prev => ({
+                                ...prev,
+                                measurements: { ...prev.measurements, "5B_outer": Number.parseFloat(e.target.value) || 0 }
+                              }))}
+                              className="w-full h-8 text-center border-0 focus:ring-1"
+                            />
+                          </TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
                   </div>
                 </div>
 

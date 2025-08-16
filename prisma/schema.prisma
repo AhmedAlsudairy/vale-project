@@ -124,6 +124,7 @@ model LrsThermographySession {
   numberOfPoints    Int      @map("number_of_points") // Number of planned measurement points
   date              DateTime @default(now())
   previewImage      String?  @map("preview_image")
+  images            Json?    // Array of image URLs from Cloudinary
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
@@ -140,6 +141,7 @@ model LrsTemperatureRecord {
   temperature     Float    // Temperature value
   status          String   // Normal, Warning, Critical
   inspector       String?  // Inspector's name
+  remark          String?  // Optional remark/note
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 

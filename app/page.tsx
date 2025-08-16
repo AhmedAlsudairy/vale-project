@@ -142,7 +142,7 @@ export default function HomePage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link href="/thermography?tab=lrs">
+            <Link href="/lrs-thermography">
               <Button className="w-full text-sm sm:text-base">Monitor LRS</Button>
             </Link>
           </CardContent>
