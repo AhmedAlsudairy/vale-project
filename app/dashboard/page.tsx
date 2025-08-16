@@ -113,12 +113,17 @@ export default function DashboardPage() {
         .slice(0, 15)
         .map((record: any, index: number) => {
           try {
+            const measurements = record.measurements
+            const measurementValues = measurements && typeof measurements === 'object' 
+              ? Object.values(measurements).filter(val => typeof val === 'number') as number[]
+              : []
+            
             return {
               date: new Date(record.inspectionDate || record.inspection_date).toLocaleDateString("en-US", {
                 month: "short",
                 day: "numeric",
               }),
-              measurement: Math.min(...Object.values(record.measurements)),
+              measurement: measurementValues.length > 0 ? Math.min(...measurementValues) : 0,
               equipment: record.tagNo || record.tag_no,
               efficiency: 95 - index * 0.5 + Math.random() * 2,
               temperature: 75 + Math.random() * 10,
@@ -141,7 +146,11 @@ export default function DashboardPage() {
       const critical = records
         .filter((r: any) => {
           try {
-            return Math.min(...Object.values(r.measurements)) < 25
+            const measurements = r.measurements
+            const measurementValues = measurements && typeof measurements === 'object' 
+              ? Object.values(measurements).filter(val => typeof val === 'number') as number[]
+              : []
+            return measurementValues.length > 0 && Math.min(...measurementValues) < 25
           } catch {
             return false
           }

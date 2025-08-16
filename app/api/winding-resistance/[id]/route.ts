@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { prisma } = await import("@/lib/prisma")
 
-    const id = Number.parseInt(params.id)
+    const resolvedParams = await params
+    const id = Number.parseInt(resolvedParams.id)
 
     const record = await prisma.windingResistanceRecord.findUnique({
       where: { id },
@@ -25,44 +26,16 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json(record)
   } catch (error) {
     console.error("Database error:", error)
-
-    // Return mock data when database is not available
-    const mockRecord = {
-      id: Number.parseInt(params.id),
-      motorNo: "BO.3161.04.M1",
-      windingResistance: { ry: 2.5, yb: 2.4, rb: 2.6 },
-      irValues: {
-        ug_1min: 15.2,
-        ug_10min: 18.5,
-        vg_1min: 14.8,
-        vg_10min: 17.9,
-        wg_1min: 15.1,
-        wg_10min: 18.2,
-      },
-      polarizationIndex: 1.22,
-      darValues: {
-        ug_30sec: 12.1,
-        ug_1min: 15.2,
-        vg_30sec: 11.8,
-        vg_1min: 14.8,
-        wg_30sec: 12.0,
-        wg_1min: 15.1,
-      },
-      inspectionDate: "2024-01-15",
-      doneBy: "John Smith",
-      remarks: "All values within acceptable range",
-      createdAt: "2024-01-15T10:30:00Z",
-    }
-
-    return NextResponse.json(mockRecord)
+    return NextResponse.json({ error: "Failed to fetch record" }, { status: 500 })
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { prisma } = await import("@/lib/prisma")
 
-    const id = Number.parseInt(params.id)
+    const resolvedParams = await params
+    const id = Number.parseInt(resolvedParams.id)
     const body = await request.json()
 
     const {
@@ -97,11 +70,12 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { prisma } = await import("@/lib/prisma")
 
-    const id = Number.parseInt(params.id)
+    const resolvedParams = await params
+    const id = Number.parseInt(resolvedParams.id)
 
     await prisma.windingResistanceRecord.delete({
       where: { id },

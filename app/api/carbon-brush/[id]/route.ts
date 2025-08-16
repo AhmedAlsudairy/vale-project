@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server"
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { prisma } = await import("@/lib/prisma")
 
-    const id = Number.parseInt(params.id)
+    const resolvedParams = await params
+    const id = Number.parseInt(resolvedParams.id)
 
     const record = await prisma.carbonBrushRecord.findUnique({
       where: { id },
@@ -25,46 +26,16 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json(record)
   } catch (error) {
     console.error("Database error:", error)
-
-    // Return mock data when database is not available
-    const mockRecord = {
-      id: Number.parseInt(params.id),
-      tagNo: "BO.3161.04.M1",
-      equipmentName: "Induration Fan Motor",
-      brushType: "C80X",
-      inspectionDate: "2024-01-15",
-      workOrderNo: "WO-2024-001",
-      doneBy: "John Smith",
-      measurements: {
-        "1A": 45.2,
-        "1B": 44.8,
-        "2A": 43.5,
-        "2B": 44.1,
-        "3A": 42.9,
-        "3B": 43.7,
-        "4A": 44.3,
-        "4B": 43.8,
-        "5A": 45.0,
-        "5B": 44.5,
-      },
-      slipRingThickness: 12.5,
-      slipRingIr: 2.3,
-      remarks: "All measurements within acceptable range",
-      createdAt: "2024-01-15T10:30:00Z",
-      equipment: {
-        equipmentName: "Induration Fan Motor",
-      },
-    }
-
-    return NextResponse.json(mockRecord)
+    return NextResponse.json({ error: "Failed to fetch record" }, { status: 500 })
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { prisma } = await import("@/lib/prisma")
 
-    const id = Number.parseInt(params.id)
+    const resolvedParams = await params
+    const id = Number.parseInt(resolvedParams.id)
     const body = await request.json()
 
     const {
@@ -110,11 +81,12 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { prisma } = await import("@/lib/prisma")
 
-    const id = Number.parseInt(params.id)
+    const resolvedParams = await params
+    const id = Number.parseInt(resolvedParams.id)
 
     await prisma.carbonBrushRecord.delete({
       where: { id },

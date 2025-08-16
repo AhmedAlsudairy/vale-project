@@ -440,7 +440,7 @@ export default function WindingResistancePage() {
         body: JSON.stringify(submitData),
       })
 
-      let responseData
+      let responseData: any
       try {
         const responseText = await response.text()
         console.log("Raw response:", responseText) // Debug log
