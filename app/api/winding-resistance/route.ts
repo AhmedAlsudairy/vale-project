@@ -95,7 +95,10 @@ export async function POST(request: NextRequest) {
       winding_resistance,
       ir_values,
       dar_values,
-      polarization_index,
+      primary_pi, // New field for Primary PI data (all voltage types)
+      dar_results, // New field for manual DAR results
+      rdi_set1, // RDI Set 1 (68-70)
+      rdi_set2, // RDI Set 2 (51-53)
       remarks,
     } = body
 
@@ -138,8 +141,14 @@ export async function POST(request: NextRequest) {
         doneBy: done_by || null,
         windingResistance: winding_resistance,
         irValues: ir_values,
-        darValues: dar_values || null,
-        polarizationIndex: polarization_index ? Number.parseFloat(polarization_index.toString()) : null,
+        darValues: {
+          ...dar_values, // Raw measurements (30sec, 1min values)
+          results: dar_results || null // Manual DAR calculation results
+        },
+        primary5kVPI: primary_pi || null, // Primary PI data (all voltage types)
+        rdiSet1: rdi_set1 || null, // RDI Set 1 data
+        rdiSet2: rdi_set2 || null, // RDI Set 2 data
+        polarizationIndex: primary_pi?.pi_result ? Number.parseFloat(primary_pi.pi_result.toString()) : null,
         remarks: remarks || null,
       },
     })
@@ -161,7 +170,8 @@ export async function POST(request: NextRequest) {
         windingResistance: body.winding_resistance,
         irValues: body.ir_values,
         darValues: body.dar_values,
-        polarizationIndex: body.polarization_index,
+        primaryPI: body.primary_pi,
+        polarizationIndex: body.primary_pi?.pi_result,
         remarks: body.remarks,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),

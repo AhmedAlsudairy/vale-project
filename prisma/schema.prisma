@@ -54,6 +54,9 @@ model WindingResistanceRecord {
   irValues           Json     @map("ir_values")
   polarizationIndex  Float?   @map("polarization_index")
   darValues          Json?    @map("dar_values")
+  primary5kVPI       Json?    @map("primary_pi") // Primary PI data (all voltage types)
+  rdiSet1           Json?    @map("rdi_set1") // RDI Set 1 (68-70)
+  rdiSet2           Json?    @map("rdi_set2") // RDI Set 2 (51-53)
   inspectionDate     DateTime @map("inspection_date")
   doneBy             String?  @map("done_by")
   remarks            String?
@@ -71,6 +74,7 @@ model EspThermographySession {
   inspectionDate    DateTime @map("inspection_date")
   month             Int      // 1-12 for months
   doneBy            String?  @map("done_by")
+  mccForcedCoolingFanTemp String? @map("mcc_forced_cooling_fan_temp")
   step              Int      @default(1) // Current step (1-4)
   isCompleted       Boolean  @default(false) @map("is_completed")
   remarks           String?
@@ -101,12 +105,14 @@ model EspTransformerRecord {
   scrCoolingFinsTemp        Float?   @map("scr_cooling_fins_temp")
   scrCoolingFan             String?  @map("scr_cooling_fan")
   panelExhaustFan           String?  @map("panel_exhaust_fan")
-  mccForcedCoolingFanTemp   String?  @map("mcc_forced_cooling_fan_temp")
   
   // RDI relay status (On/Off instead of temperature)
   rdi68                     String?  // "On" or "Off"
   rdi69                     String?  // "On" or "Off"
   rdi70                     String?  // "On" or "Off"
+  rdi51                     String?  // "OK" or "Not OK"
+  rdi52                     String?  // "OK" or "Not OK"
+  rdi53                     String?  // "OK" or "Not OK"
   
   createdAt                 DateTime @default(now()) @map("created_at")
   updatedAt                 DateTime @updatedAt @map("updated_at")

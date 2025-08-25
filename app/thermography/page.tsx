@@ -53,10 +53,17 @@ interface TransformerRecord {
   mccbCOg1?: number          // MCCB C O/G-1 (°C)
   mccbCOg2?: number          // MCCB C O/G-2 (°C)
   mccbBodyTemp?: number      // MCCB Body (°C)
+  kvMa?: string             // KV/MA
+  spMin?: string            // SP/MIN
   scrCoolingFinsTemp?: number // SCR Cooling Fins (°C)
+  scrCoolingFan?: string    // SCR Cooling Fan (OK/Not OK)
+  panelExhaustFan?: string  // Panel Exhaust Fan (OK/Not OK)
   rdi68?: string            // RDI-68 on/off
   rdi69?: string            // RDI-69 on/off
   rdi70?: string            // RDI-70 on/off
+  rdi51?: string            // RDI-51 OK/Not OK
+  rdi52?: string            // RDI-52 OK/Not OK
+  rdi53?: string            // RDI-53 OK/Not OK
 }
 
 const months = [
@@ -131,6 +138,7 @@ export default function ThermographyPage() {
     inspectionDate: undefined as Date | undefined,
     month: '',
     doneBy: '',
+    mccForcedCoolingFanTemp: '',
     remarks: '',
     transformers: [
       {
@@ -140,10 +148,17 @@ export default function ThermographyPage() {
         mccbCOg1: '',
         mccbCOg2: '',
         mccbBodyTemp: '',
+        kvMa: '',
+        spMin: '',
         scrCoolingFinsTemp: '',
+        scrCoolingFan: '',
+        panelExhaustFan: '',
         rdi68: 'off',
         rdi69: 'off',
-        rdi70: 'off'
+        rdi70: 'off',
+        rdi51: '',
+        rdi52: '',
+        rdi53: ''
       },
       {
         transformerNo: 'TF2',
@@ -152,10 +167,17 @@ export default function ThermographyPage() {
         mccbCOg1: '',
         mccbCOg2: '',
         mccbBodyTemp: '',
+        kvMa: '',
+        spMin: '',
         scrCoolingFinsTemp: '',
+        scrCoolingFan: '',
+        panelExhaustFan: '',
         rdi68: 'off',
         rdi69: 'off',
-        rdi70: 'off'
+        rdi70: 'off',
+        rdi51: '',
+        rdi52: '',
+        rdi53: ''
       },
       {
         transformerNo: 'TF3',
@@ -164,13 +186,17 @@ export default function ThermographyPage() {
         mccbCOg1: '',
         mccbCOg2: '',
         mccbBodyTemp: '',
+        kvMa: '',
+        spMin: '',
         scrCoolingFinsTemp: '',
         scrCoolingFan: '',
         panelExhaustFan: '',
-        mccForcedCoolingFanTemp: '',
         rdi68: '',
         rdi69: '',
-        rdi70: ''
+        rdi70: '',
+        rdi51: '',
+        rdi52: '',
+        rdi53: ''
       }
     ]
   })
@@ -257,6 +283,7 @@ export default function ThermographyPage() {
         inspectionDate: formData.inspectionDate?.toISOString(),
         month: parseInt(formData.month),
         doneBy: formData.doneBy,
+        mccForcedCoolingFanTemp: formData.mccForcedCoolingFanTemp,
         remarks: formData.remarks,
         transformers: formData.transformers.map(t => ({
           ...t,
@@ -266,8 +293,11 @@ export default function ThermographyPage() {
           mccbCOg2: t.mccbCOg2 ? parseFloat(t.mccbCOg2) : undefined,
           mccbBodyTemp: t.mccbBodyTemp ? parseFloat(t.mccbBodyTemp) : undefined,
           scrCoolingFinsTemp: t.scrCoolingFinsTemp ? parseFloat(t.scrCoolingFinsTemp) : undefined,
-          // Keep mccForcedCoolingFanTemp as string (it's a status, not temperature)
-          mccForcedCoolingFanTemp: t.mccForcedCoolingFanTemp || undefined
+          // Keep these as strings
+          kvMa: t.kvMa || undefined,
+          spMin: t.spMin || undefined,
+          scrCoolingFan: t.scrCoolingFan || undefined,
+          panelExhaustFan: t.panelExhaustFan || undefined
         }))
       }
       
@@ -318,22 +348,26 @@ export default function ThermographyPage() {
       inspectionDate: undefined,
       month: '',
       doneBy: '',
+      mccForcedCoolingFanTemp: '',
       remarks: '',
       transformers: [
         {
           transformerNo: 'TF1',
           mccbIcRPhase: '', mccbIcBPhase: '', mccbCOg1: '', mccbCOg2: '', mccbBodyTemp: '',
-          scrCoolingFinsTemp: '', rdi68: 'off', rdi69: 'off', rdi70: 'off'
+          kvMa: '', spMin: '', scrCoolingFinsTemp: '', scrCoolingFan: '', panelExhaustFan: '', 
+          rdi68: 'off', rdi69: 'off', rdi70: 'off', rdi51: '', rdi52: '', rdi53: ''
         },
         {
           transformerNo: 'TF2',
           mccbIcRPhase: '', mccbIcBPhase: '', mccbCOg1: '', mccbCOg2: '', mccbBodyTemp: '',
-          scrCoolingFinsTemp: '', rdi68: 'off', rdi69: 'off', rdi70: 'off'
+          kvMa: '', spMin: '', scrCoolingFinsTemp: '', scrCoolingFan: '', panelExhaustFan: '',
+          rdi68: 'off', rdi69: 'off', rdi70: 'off', rdi51: '', rdi52: '', rdi53: ''
         },
         {
           transformerNo: 'TF3',
           mccbIcRPhase: '', mccbIcBPhase: '', mccbCOg1: '', mccbCOg2: '', mccbBodyTemp: '',
-          scrCoolingFinsTemp: '', rdi68: 'off', rdi69: 'off', rdi70: 'off'
+          kvMa: '', spMin: '', scrCoolingFinsTemp: '', scrCoolingFan: '', panelExhaustFan: '',
+          rdi68: 'off', rdi69: 'off', rdi70: 'off', rdi51: '', rdi52: '', rdi53: ''
         }
       ]
     })
@@ -351,47 +385,36 @@ export default function ThermographyPage() {
           mccbCOg1: record.mccbCOg1?.toString() || '',
           mccbCOg2: record.mccbCOg2?.toString() || '',
           mccbBodyTemp: record.mccbBodyTemp?.toString() || '',
+          kvMa: record.kvMa || '',
+          spMin: record.spMin || '',
           scrCoolingFinsTemp: record.scrCoolingFinsTemp?.toString() || '',
+          scrCoolingFan: record.scrCoolingFan || '',
+          panelExhaustFan: record.panelExhaustFan || '',
           rdi68: record.rdi68 || 'off',
           rdi69: record.rdi69 || 'off',
-          rdi70: record.rdi70 || 'off'
+          rdi70: record.rdi70 || 'off',
+          rdi51: record.rdi51 || '',
+          rdi52: record.rdi52 || '',
+          rdi53: record.rdi53 || ''
         }))
       : [
           {
             transformerNo: 'TF1',
-            mccbIcRPhase: '',
-            mccbIcBPhase: '',
-            mccbCOg1: '',
-            mccbCOg2: '',
-            mccbBodyTemp: '',
-            scrCoolingFinsTemp: '',
-            rdi68: 'off',
-            rdi69: 'off',
-            rdi70: 'off'
+            mccbIcRPhase: '', mccbIcBPhase: '', mccbCOg1: '', mccbCOg2: '', mccbBodyTemp: '',
+            kvMa: '', spMin: '', scrCoolingFinsTemp: '', scrCoolingFan: '', panelExhaustFan: '',
+            rdi68: 'off', rdi69: 'off', rdi70: 'off', rdi51: '', rdi52: '', rdi53: ''
           },
           {
             transformerNo: 'TF2',
-            mccbIcRPhase: '',
-            mccbIcBPhase: '',
-            mccbCOg1: '',
-            mccbCOg2: '',
-            mccbBodyTemp: '',
-            scrCoolingFinsTemp: '',
-            rdi68: 'off',
-            rdi69: 'off',
-            rdi70: 'off'
+            mccbIcRPhase: '', mccbIcBPhase: '', mccbCOg1: '', mccbCOg2: '', mccbBodyTemp: '',
+            kvMa: '', spMin: '', scrCoolingFinsTemp: '', scrCoolingFan: '', panelExhaustFan: '',
+            rdi68: 'off', rdi69: 'off', rdi70: 'off', rdi51: '', rdi52: '', rdi53: ''
           },
           {
             transformerNo: 'TF3',
-            mccbIcRPhase: '',
-            mccbIcBPhase: '',
-            mccbCOg1: '',
-            mccbCOg2: '',
-            mccbBodyTemp: '',
-            scrCoolingFinsTemp: '',
-            rdi68: 'off',
-            rdi69: 'off',
-            rdi70: 'off'
+            mccbIcRPhase: '', mccbIcBPhase: '', mccbCOg1: '', mccbCOg2: '', mccbBodyTemp: '',
+            kvMa: '', spMin: '', scrCoolingFinsTemp: '', scrCoolingFan: '', panelExhaustFan: '',
+            rdi68: 'off', rdi69: 'off', rdi70: 'off', rdi51: '', rdi52: '', rdi53: ''
           }
         ]
     
@@ -402,6 +425,7 @@ export default function ThermographyPage() {
       inspectionDate: new Date(session.inspectionDate),
       month: session.month.toString(),
       doneBy: session.doneBy || '',
+      mccForcedCoolingFanTemp: '',
       remarks: session.remarks || '',
       transformers
     })
@@ -503,6 +527,7 @@ export default function ThermographyPage() {
           'Inspection Date': format(new Date(s.inspectionDate), 'dd/MM/yyyy'),
           'Month': months.find(m => m.value === s.month)?.label,
           'Inspector': s.doneBy || '',
+          'MCC Forced Cooling Fan Temp': s.mccForcedCoolingFanTemp || '',
           'Transformer': record.transformerNo,
           'Step': record.step,
           'MCCB IC R-Phase (°C)': record.mccbIcRPhase || '',
@@ -510,10 +535,17 @@ export default function ThermographyPage() {
           'MCCB C O/G-1 (°C)': record.mccbCOg1 || '',
           'MCCB C O/G-2 (°C)': record.mccbCOg2 || '',
           'MCCB Body Temp (°C)': record.mccbBodyTemp || '',
+          'KV/MA': record.kvMa || '',
+          'SP/MIN': record.spMin || '',
           'SCR Cooling Fins Temp (°C)': record.scrCoolingFinsTemp || '',
+          'Cooling Fan': record.scrCoolingFan || '',
+          'Exhaust Fan': record.panelExhaustFan || '',
           'RDI-68 Relay': record.rdi68 || '',
           'RDI-69 Relay': record.rdi69 || '',
           'RDI-70 Relay': record.rdi70 || '',
+          'RDI-51 Relay': record.rdi51 || '',
+          'RDI-52 Relay': record.rdi52 || '',
+          'RDI-53 Relay': record.rdi53 || '',
           'Remarks': s.remarks || ''
         }))
       )
@@ -780,6 +812,16 @@ export default function ThermographyPage() {
                       placeholder="Inspector name"
                     />
                   </div>
+                  
+                  <div>
+                    <Label htmlFor="mccForcedCoolingFanTemp">MCC Forced Cooling Fan Temp (Optional)</Label>
+                    <Input
+                      id="mccForcedCoolingFanTemp"
+                      value={formData.mccForcedCoolingFanTemp || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, mccForcedCoolingFanTemp: e.target.value }))}
+                      placeholder="Enter temperature or status"
+                    />
+                  </div>
                 </div>
 
                 <div>
@@ -981,6 +1023,54 @@ export default function ThermographyPage() {
                           />
                         </div>
                         <div>
+                          <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>KV/MA</Label>
+                          <Input
+                            type="text"
+                            value={transformer.kvMa}
+                            onChange={(e) => updateTransformer(index, 'kvMa', e.target.value)}
+                            placeholder="Enter KV/MA value"
+                          />
+                        </div>
+                        <div>
+                          <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>SP/MIN</Label>
+                          <Input
+                            type="text"
+                            value={transformer.spMin}
+                            onChange={(e) => updateTransformer(index, 'spMin', e.target.value)}
+                            placeholder="Enter SP/MIN value"
+                          />
+                        </div>
+                        <div>
+                          <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>Cooling Fan</Label>
+                          <Select
+                            value={transformer.scrCoolingFan}
+                            onValueChange={(value) => updateTransformer(index, 'scrCoolingFan', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="OK">OK</SelectItem>
+                              <SelectItem value="Not OK">Not OK</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>Exhaust Fan</Label>
+                          <Select
+                            value={transformer.panelExhaustFan}
+                            onValueChange={(value) => updateTransformer(index, 'panelExhaustFan', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="OK">OK</SelectItem>
+                              <SelectItem value="Not OK">Not OK</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
                           <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>RDI-68 Relay</Label>
                           <Select
                             value={transformer.rdi68}
@@ -1022,6 +1112,51 @@ export default function ThermographyPage() {
                             <SelectContent>
                               <SelectItem value="on">On</SelectItem>
                               <SelectItem value="off">Off</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>RDI-51 Relay</Label>
+                          <Select
+                            value={transformer.rdi51}
+                            onValueChange={(value) => updateTransformer(index, 'rdi51', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="OK">OK</SelectItem>
+                              <SelectItem value="Not OK">Not OK</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>RDI-52 Relay</Label>
+                          <Select
+                            value={transformer.rdi52}
+                            onValueChange={(value) => updateTransformer(index, 'rdi52', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="OK">OK</SelectItem>
+                              <SelectItem value="Not OK">Not OK</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className={hasTemperatureData ? "text-green-800 font-medium" : ""}>RDI-53 Relay</Label>
+                          <Select
+                            value={transformer.rdi53}
+                            onValueChange={(value) => updateTransformer(index, 'rdi53', value)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="OK">OK</SelectItem>
+                              <SelectItem value="Not OK">Not OK</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>

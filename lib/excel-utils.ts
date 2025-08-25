@@ -224,13 +224,29 @@ export const exportWindingResistanceToExcel = (records: any[], filtered: boolean
     'IR VG 10min (GΩ)',
     'IR WG 1min (GΩ)',
     'IR WG 10min (GΩ)',
-    'Polarization Index',
+    'Primary PI UG 1min (GΩ)',
+    'Primary PI UG 10min (GΩ)',
+    'Primary PI VG 1min (GΩ)',
+    'Primary PI VG 10min (GΩ)',
+    'Primary PI WG 1min (GΩ)',
+    'Primary PI WG 10min (GΩ)',
+    'Primary PI Mode',
+    'Primary PI Result',
     'DAR UG 30sec (GΩ)',
     'DAR UG 1min (GΩ)',
     'DAR VG 30sec (GΩ)',
     'DAR VG 1min (GΩ)',
     'DAR WG 30sec (GΩ)',
     'DAR WG 1min (GΩ)',
+    'DAR UG Result',
+    'DAR VG Result',
+    'DAR WG Result',
+    'RDI-68',
+    'RDI-69',
+    'RDI-70',
+    'RDI-51',
+    'RDI-52',
+    'RDI-53',
     'Status',
     'Remarks'
   ]
@@ -242,6 +258,13 @@ export const exportWindingResistanceToExcel = (records: any[], filtered: boolean
       safeGet(record, 'irValues.wg_1min', 0)
     ) / 3
     const status = avgIR >= 10 ? 'Good (≥10 GΩ)' : avgIR >= 1 ? 'Acceptable (1-10 GΩ)' : 'Poor (<1 GΩ)'
+    
+    // Get Primary PI data
+    const primaryPI = safeGet(record, 'primary5kVPI', {}) || safeGet(record, 'primaryPI', {})
+    
+    // Get RDI data
+    const rdiSet1 = safeGet(record, 'rdiSet1', {})
+    const rdiSet2 = safeGet(record, 'rdiSet2', {})
     
     return [
       safeGet(record, 'motorNo', ''),
@@ -258,19 +281,35 @@ export const exportWindingResistanceToExcel = (records: any[], filtered: boolean
       `${safeGet(record, 'irValues.vg_10min', 0)} GΩ`,
       `${safeGet(record, 'irValues.wg_1min', 0)} GΩ (Min: ≥1.0)`,
       `${safeGet(record, 'irValues.wg_10min', 0)} GΩ`,
-      `${safeGet(record, 'polarizationIndex', 0)} (Min: ≥2.0)`,
+      `${safeGet(primaryPI, 'ug_1min', 0)} GΩ`,
+      `${safeGet(primaryPI, 'ug_10min', 0)} GΩ`,
+      `${safeGet(primaryPI, 'vg_1min', 0)} GΩ`,
+      `${safeGet(primaryPI, 'vg_10min', 0)} GΩ`,
+      `${safeGet(primaryPI, 'wg_1min', 0)} GΩ`,
+      `${safeGet(primaryPI, 'wg_10min', 0)} GΩ`,
+      safeGet(primaryPI, 'pi_mode', 'manual').charAt(0).toUpperCase() + safeGet(primaryPI, 'pi_mode', 'manual').slice(1),
+      `${safeGet(primaryPI, 'pi_result', 0)} (Min: ≥2.0)`,
       `${safeGet(record, 'darValues.ug_30sec', 0)} GΩ`,
       `${safeGet(record, 'darValues.ug_1min', 0)} GΩ`,
       `${safeGet(record, 'darValues.vg_30sec', 0)} GΩ`,
       `${safeGet(record, 'darValues.vg_1min', 0)} GΩ`,
       `${safeGet(record, 'darValues.wg_30sec', 0)} GΩ`,
       `${safeGet(record, 'darValues.wg_1min', 0)} GΩ`,
+      `${safeGet(record, 'darValues.results.ug_result', 0)} (Min: ≥1.25)`,
+      `${safeGet(record, 'darValues.results.vg_result', 0)} (Min: ≥1.25)`,
+      `${safeGet(record, 'darValues.results.wg_result', 0)} (Min: ≥1.25)`,
+      safeGet(rdiSet1, 'rdi_68', 'Off'),
+      safeGet(rdiSet1, 'rdi_69', 'Off'),
+      safeGet(rdiSet1, 'rdi_70', 'Off'),
+      safeGet(rdiSet2, 'rdi_51', 'Off'),
+      safeGet(rdiSet2, 'rdi_52', 'Off'),
+      safeGet(rdiSet2, 'rdi_53', 'Off'),
       status,
       safeGet(record, 'remarks', '')
     ]
   })
 
-  const columnWidths = [15, 25, 15, 15, 15, 18, 18, 18, 20, 20, 20, 20, 20, 20, 18, 18, 18, 18, 18, 18, 18, 20, 30]
+  const columnWidths = [15, 25, 15, 15, 15, 18, 18, 18, 20, 20, 20, 20, 20, 20, 18, 18, 18, 18, 18, 18, 15, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 10, 10, 10, 10, 10, 10, 20, 30]
   const filename = `winding-resistance-${filtered ? 'filtered-' : ''}${new Date().toISOString().split('T')[0]}.xlsx`
   
   exportToExcel({
@@ -417,6 +456,9 @@ export const exportSingleWindingResistanceToExcel = (record: any) => {
                   equipmentType.includes('500v') ? '500V' : ''
   const title = voltage ? `${voltage} IR/DAR TEST REPORT` : 'IR/DAR TEST REPORT'
 
+  // Get Primary PI data
+  const primaryPI = safeGet(record, 'primary5kVPI', {}) || safeGet(record, 'primaryPI', {})
+  
   // Calculate status and colors
   const avgIR = (
     safeGet(record, 'irValues.ug_1min', 0) + 
@@ -428,7 +470,7 @@ export const exportSingleWindingResistanceToExcel = (record: any) => {
   const irStatusColor = avgIR >= 10 ? '16A085' : avgIR >= 1 ? 'F39C12' : 'E74C3C'
   const irStatusBg = avgIR >= 10 ? 'E8F6F3' : avgIR >= 1 ? 'FEF9E7' : 'FADBD8'
   
-  const pi = safeGet(record, 'polarizationIndex', 0)
+  const pi = safeGet(primaryPI, 'pi_result', 0) || safeGet(record, 'polarizationIndex', 0)
   const piStatus = pi >= 4.0 ? 'EXCELLENT (≥4.0)' : pi >= 2.0 ? 'GOOD (2.0-4.0)' : pi >= 1.5 ? 'ACCEPTABLE (1.5-2.0)' : 'POOR (<1.5)'
   const piStatusColor = pi >= 4.0 ? '16A085' : pi >= 2.0 ? '27AE60' : pi >= 1.5 ? 'F39C12' : 'E74C3C'
   const piStatusBg = pi >= 4.0 ? 'E8F6F3' : pi >= 2.0 ? 'E8F6F3' : pi >= 1.5 ? 'FEF9E7' : 'FADBD8'
@@ -469,20 +511,48 @@ export const exportSingleWindingResistanceToExcel = (record: any) => {
     ['Phase W-Ground (1 min)', `${safeGet(record, 'irValues.wg_1min', 0)} GΩ (Min: ≥1.0 GΩ)`],
     ['Phase W-Ground (10 min)', `${safeGet(record, 'irValues.wg_10min', 0)} GΩ`],
     ['', ''],
+    ['� PRIMARY PI MEASUREMENTS', ''],
+    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
+    ['Primary U-Ground (1 min)', `${safeGet(primaryPI, 'ug_1min', 0)} GΩ`],
+    ['Primary U-Ground (10 min)', `${safeGet(primaryPI, 'ug_10min', 0)} GΩ`],
+    ['Primary V-Ground (1 min)', `${safeGet(primaryPI, 'vg_1min', 0)} GΩ`],
+    ['Primary V-Ground (10 min)', `${safeGet(primaryPI, 'vg_10min', 0)} GΩ`],
+    ['Primary W-Ground (1 min)', `${safeGet(primaryPI, 'wg_1min', 0)} GΩ`],
+    ['Primary W-Ground (10 min)', `${safeGet(primaryPI, 'wg_10min', 0)} GΩ`],
+    ['Primary PI Mode', (safeGet(primaryPI, 'pi_mode', 'manual') || 'manual').charAt(0).toUpperCase() + (safeGet(primaryPI, 'pi_mode', 'manual') || 'manual').slice(1)],
+    ['', ''],
     ['📈 POLARIZATION INDEX (PI)', ''],
     ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
-    ['PI Value (10min/1min)', `${safeGet(record, 'polarizationIndex', 0)} (Min: ≥2.0)`],
+    ['Primary PI Result', `${safeGet(primaryPI, 'pi_result', 0)} (Min: ≥2.0)`],
     ['PI Assessment', piStatus],
     ['📋 PI Interpretation', pi >= 4.0 ? 'Outstanding insulation condition' : pi >= 2.0 ? 'Good insulation condition' : pi >= 1.5 ? 'Questionable insulation' : 'Poor insulation - investigate'],
     ['', ''],
     ['⚙️ DIELECTRIC ABSORPTION RATIO (DAR)', ''],
     ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
+    ['📊 Raw DAR Measurements:', ''],
     ['Phase U DAR (30sec)', `${safeGet(record, 'darValues.ug_30sec', 0)} GΩ`],
     ['Phase U DAR (1min)', `${safeGet(record, 'darValues.ug_1min', 0)} GΩ`],
     ['Phase V DAR (30sec)', `${safeGet(record, 'darValues.vg_30sec', 0)} GΩ`],
     ['Phase V DAR (1min)', `${safeGet(record, 'darValues.vg_1min', 0)} GΩ`],
     ['Phase W DAR (30sec)', `${safeGet(record, 'darValues.wg_30sec', 0)} GΩ`],
     ['Phase W DAR (1min)', `${safeGet(record, 'darValues.wg_1min', 0)} GΩ`],
+    ['', ''],
+    ['📈 DAR Results (Manual Entry):', ''],
+    ['Phase U-G DAR Result', `${safeGet(record, 'darValues.results.ug_result', 0)} (Min: ≥1.25)`],
+    ['Phase V-G DAR Result', `${safeGet(record, 'darValues.results.vg_result', 0)} (Min: ≥1.25)`],
+    ['Phase W-G DAR Result', `${safeGet(record, 'darValues.results.wg_result', 0)} (Min: ≥1.25)`],
+    ['', ''],
+    ['⚙️ RDI RELAY SETTINGS', ''],
+    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
+    ['🔵 RDI Set 1 (68-70):', ''],
+    ['RDI-68 Relay', safeGet(record, 'rdiSet1.rdi_68', 'Off')],
+    ['RDI-69 Relay', safeGet(record, 'rdiSet1.rdi_69', 'Off')],
+    ['RDI-70 Relay', safeGet(record, 'rdiSet1.rdi_70', 'Off')],
+    ['', ''],
+    ['🟢 RDI Set 2 (51-53):', ''],
+    ['RDI-51 Relay', safeGet(record, 'rdiSet2.rdi_51', 'Off')],
+    ['RDI-52 Relay', safeGet(record, 'rdiSet2.rdi_52', 'Off')],
+    ['RDI-53 Relay', safeGet(record, 'rdiSet2.rdi_53', 'Off')],
     ['', ''],
     ['🎯 OVERALL ASSESSMENT', ''],
     ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],

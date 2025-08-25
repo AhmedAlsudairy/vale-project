@@ -35,7 +35,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const id = Number.parseInt(resolvedParams.id)
     const body = await request.json()
 
-    const { espCode, equipmentName, equipmentType, inspectionDate, month, doneBy, transformers, remarks } = body
+    const { espCode, equipmentName, equipmentType, inspectionDate, month, doneBy, transformers, mccForcedCoolingFanTemp, remarks } = body
 
     console.log('Updating ESP session:', id, 'with transformers:', transformers?.length || 0)
 
@@ -61,6 +61,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         inspectionDate: new Date(inspectionDate),
         month: parseInt(month),
         doneBy,
+        mccForcedCoolingFanTemp,
         step: Math.max(1, completedTransformers),
         isCompleted: completedTransformers === 3,
         remarks,
@@ -106,10 +107,12 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             scrCoolingFinsTemp: parseFloat(transformer.scrCoolingFinsTemp) || null,
             scrCoolingFan: transformer.scrCoolingFan || null,
             panelExhaustFan: transformer.panelExhaustFan || null,
-            mccForcedCoolingFanTemp: transformer.mccForcedCoolingFanTemp || null, // Keep as string
             rdi68: transformer.rdi68 || null,
             rdi69: transformer.rdi69 || null,
             rdi70: transformer.rdi70 || null,
+            rdi51: transformer.rdi51 || null,
+            rdi52: transformer.rdi52 || null,
+            rdi53: transformer.rdi53 || null,
             remark: transformer.remark || null
           }))
         })

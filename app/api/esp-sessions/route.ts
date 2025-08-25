@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { espCode, equipmentName, equipmentType, inspectionDate, month, doneBy, transformers, remarks } = body
+    const { espCode, equipmentName, equipmentType, inspectionDate, month, doneBy, transformers, mccForcedCoolingFanTemp, remarks } = body
 
     // Check if ESP equipment exists in equipment master, if not create it
     let equipment = await prisma.equipmentMaster.findUnique({
@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
         inspectionDate: new Date(inspectionDate),
         month: parseInt(month),
         doneBy,
+        mccForcedCoolingFanTemp,
         step: Math.max(1, completedTransformers), // Ensure step is at least 1
         isCompleted: completedTransformers === 3, // Only completed when ALL 3 transformers have actual data
         remarks,
@@ -126,10 +127,12 @@ export async function POST(request: NextRequest) {
             scrCoolingFinsTemp: parseFloat(transformer.scrCoolingFinsTemp) || null,
             scrCoolingFan: transformer.scrCoolingFan || null,
             panelExhaustFan: transformer.panelExhaustFan || null,
-            mccForcedCoolingFanTemp: transformer.mccForcedCoolingFanTemp || null,
             rdi68: transformer.rdi68 || null, // Relay status: "On" or "Off"
             rdi69: transformer.rdi69 || null, // Relay status: "On" or "Off"
-            rdi70: transformer.rdi70 || null  // Relay status: "On" or "Off"
+            rdi70: transformer.rdi70 || null, // Relay status: "On" or "Off"
+            rdi51: transformer.rdi51 || null, // Relay status: "OK" or "Not OK"
+            rdi52: transformer.rdi52 || null, // Relay status: "OK" or "Not OK"
+            rdi53: transformer.rdi53 || null  // Relay status: "OK" or "Not OK"
           }))
         }
       },
