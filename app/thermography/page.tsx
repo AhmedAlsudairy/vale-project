@@ -37,6 +37,7 @@ interface EspSession {
   inspectionDate: string
   month: number
   doneBy?: string
+  mccForcedCoolingFanTemp?: string
   step: number
   isCompleted: boolean
   remarks?: string
