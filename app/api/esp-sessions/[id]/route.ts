@@ -112,8 +112,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
             rdi70: transformer.rdi70 || null,
             rdi51: transformer.rdi51 || null,
             rdi52: transformer.rdi52 || null,
-            rdi53: transformer.rdi53 || null,
-            remark: transformer.remark || null
+            rdi53: transformer.rdi53 || null
           }))
         })
         console.log('Created', espTransformers.length, 'transformer records for session', id)
