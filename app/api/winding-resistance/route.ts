@@ -97,8 +97,6 @@ export async function POST(request: NextRequest) {
       dar_values,
       primary_pi, // New field for Primary PI data (all voltage types)
       dar_results, // New field for manual DAR results
-      rdi_set1, // RDI Set 1 (68-70)
-      rdi_set2, // RDI Set 2 (51-53)
       remarks,
     } = body
 
@@ -146,8 +144,6 @@ export async function POST(request: NextRequest) {
           results: dar_results || null // Manual DAR calculation results
         },
         primary5kVPI: primary_pi || null, // Primary PI data (all voltage types)
-        rdiSet1: rdi_set1 || null, // RDI Set 1 data
-        rdiSet2: rdi_set2 || null, // RDI Set 2 data
         polarizationIndex: primary_pi?.pi_result ? Number.parseFloat(primary_pi.pi_result.toString()) : null,
         remarks: remarks || null,
       },

@@ -241,12 +241,6 @@ export const exportWindingResistanceToExcel = (records: any[], filtered: boolean
     'DAR UG Result',
     'DAR VG Result',
     'DAR WG Result',
-    'RDI-68',
-    'RDI-69',
-    'RDI-70',
-    'RDI-51',
-    'RDI-52',
-    'RDI-53',
     'Status',
     'Remarks'
   ]
@@ -261,10 +255,6 @@ export const exportWindingResistanceToExcel = (records: any[], filtered: boolean
     
     // Get Primary PI data
     const primaryPI = safeGet(record, 'primary5kVPI', {}) || safeGet(record, 'primaryPI', {})
-    
-    // Get RDI data
-    const rdiSet1 = safeGet(record, 'rdiSet1', {})
-    const rdiSet2 = safeGet(record, 'rdiSet2', {})
     
     return [
       safeGet(record, 'motorNo', ''),
@@ -298,18 +288,12 @@ export const exportWindingResistanceToExcel = (records: any[], filtered: boolean
       `${safeGet(record, 'darValues.results.ug_result', 0)} (Min: ≥1.25)`,
       `${safeGet(record, 'darValues.results.vg_result', 0)} (Min: ≥1.25)`,
       `${safeGet(record, 'darValues.results.wg_result', 0)} (Min: ≥1.25)`,
-      safeGet(rdiSet1, 'rdi_68', 'Off'),
-      safeGet(rdiSet1, 'rdi_69', 'Off'),
-      safeGet(rdiSet1, 'rdi_70', 'Off'),
-      safeGet(rdiSet2, 'rdi_51', 'Off'),
-      safeGet(rdiSet2, 'rdi_52', 'Off'),
-      safeGet(rdiSet2, 'rdi_53', 'Off'),
       status,
       safeGet(record, 'remarks', '')
     ]
   })
 
-  const columnWidths = [15, 25, 15, 15, 15, 18, 18, 18, 20, 20, 20, 20, 20, 20, 18, 18, 18, 18, 18, 18, 15, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 10, 10, 10, 10, 10, 10, 20, 30]
+  const columnWidths = [15, 25, 15, 15, 15, 18, 18, 18, 20, 20, 20, 20, 20, 20, 18, 18, 18, 18, 18, 18, 15, 18, 18, 18, 18, 18, 18, 18, 18, 18, 18, 20, 30]
   const filename = `winding-resistance-${filtered ? 'filtered-' : ''}${new Date().toISOString().split('T')[0]}.xlsx`
   
   exportToExcel({
@@ -333,16 +317,36 @@ export const exportCarbonBrushToExcel = (records: any[], filtered: boolean = fal
     'Inspection Date',
     'Work Order No',
     'Done By',
-    'Brush 1A (mm)',
-    'Brush 1B (mm)',
-    'Brush 2A (mm)',
-    'Brush 2B (mm)',
-    'Brush 3A (mm)',
-    'Brush 3B (mm)',
-    'Brush 4A (mm)',
-    'Brush 4B (mm)',
-    'Brush 5A (mm)',
-    'Brush 5B (mm)',
+    '1A Inner (mm)',
+    '1A Center (mm)',
+    '1A Outer (mm)',
+    '1B Inner (mm)',
+    '1B Center (mm)',
+    '1B Outer (mm)',
+    '2A Inner (mm)',
+    '2A Center (mm)',
+    '2A Outer (mm)',
+    '2B Inner (mm)',
+    '2B Center (mm)',
+    '2B Outer (mm)',
+    '3A Inner (mm)',
+    '3A Center (mm)',
+    '3A Outer (mm)',
+    '3B Inner (mm)',
+    '3B Center (mm)',
+    '3B Outer (mm)',
+    '4A Inner (mm)',
+    '4A Center (mm)',
+    '4A Outer (mm)',
+    '4B Inner (mm)',
+    '4B Center (mm)',
+    '4B Outer (mm)',
+    '5A Inner (mm)',
+    '5A Center (mm)',
+    '5A Outer (mm)',
+    '5B Inner (mm)',
+    '5B Center (mm)',
+    '5B Outer (mm)',
     'Slip Ring Thickness (mm)',
     'Slip Ring IR (1 Minute) (GΩ)',
     'Status',
@@ -352,13 +356,9 @@ export const exportCarbonBrushToExcel = (records: any[], filtered: boolean = fal
   const data = records.map(record => {
     // Calculate status based on measurements
     const measurements = record.measurements || {}
-    const brushValues = [
-      measurements.brush1A, measurements.brush1B,
-      measurements.brush2A, measurements.brush2B, 
-      measurements.brush3A, measurements.brush3B,
-      measurements.brush4A, measurements.brush4B,
-      measurements.brush5A, measurements.brush5B
-    ].filter(val => val !== undefined && val !== null && val > 0)
+    const brushValues = Object.values(measurements)
+      .filter(val => val !== undefined && val !== null && typeof val === 'number' && val > 0)
+      .map(val => val as number)
     
     const minBrush = brushValues.length > 0 ? Math.min(...brushValues) : 0
     const slipRingIr = record.slipRingIr || 0
@@ -376,16 +376,36 @@ export const exportCarbonBrushToExcel = (records: any[], filtered: boolean = fal
       formatExcelDate(safeGet(record, 'inspectionDate', '')),
       safeGet(record, 'workOrderNo', ''),
       safeGet(record, 'doneBy', ''),
-      safeGet(record, 'measurements.brush1A', 0),
-      safeGet(record, 'measurements.brush1B', 0),
-      safeGet(record, 'measurements.brush2A', 0),
-      safeGet(record, 'measurements.brush2B', 0),
-      safeGet(record, 'measurements.brush3A', 0),
-      safeGet(record, 'measurements.brush3B', 0),
-      safeGet(record, 'measurements.brush4A', 0),
-      safeGet(record, 'measurements.brush4B', 0),
-      safeGet(record, 'measurements.brush5A', 0),
-      safeGet(record, 'measurements.brush5B', 0),
+      safeGet(record, 'measurements.1A_inner', 0),
+      safeGet(record, 'measurements.1A_center', 0),
+      safeGet(record, 'measurements.1A_outer', 0),
+      safeGet(record, 'measurements.1B_inner', 0),
+      safeGet(record, 'measurements.1B_center', 0),
+      safeGet(record, 'measurements.1B_outer', 0),
+      safeGet(record, 'measurements.2A_inner', 0),
+      safeGet(record, 'measurements.2A_center', 0),
+      safeGet(record, 'measurements.2A_outer', 0),
+      safeGet(record, 'measurements.2B_inner', 0),
+      safeGet(record, 'measurements.2B_center', 0),
+      safeGet(record, 'measurements.2B_outer', 0),
+      safeGet(record, 'measurements.3A_inner', 0),
+      safeGet(record, 'measurements.3A_center', 0),
+      safeGet(record, 'measurements.3A_outer', 0),
+      safeGet(record, 'measurements.3B_inner', 0),
+      safeGet(record, 'measurements.3B_center', 0),
+      safeGet(record, 'measurements.3B_outer', 0),
+      safeGet(record, 'measurements.4A_inner', 0),
+      safeGet(record, 'measurements.4A_center', 0),
+      safeGet(record, 'measurements.4A_outer', 0),
+      safeGet(record, 'measurements.4B_inner', 0),
+      safeGet(record, 'measurements.4B_center', 0),
+      safeGet(record, 'measurements.4B_outer', 0),
+      safeGet(record, 'measurements.5A_inner', 0),
+      safeGet(record, 'measurements.5A_center', 0),
+      safeGet(record, 'measurements.5A_outer', 0),
+      safeGet(record, 'measurements.5B_inner', 0),
+      safeGet(record, 'measurements.5B_center', 0),
+      safeGet(record, 'measurements.5B_outer', 0),
       `${safeGet(record, 'slipRingThickness', 0)} (Range: 12-15mm)`,
       `${safeGet(record, 'slipRingIr', 0)} (Min: ≥2.0 GΩ)`,
       status,
@@ -393,7 +413,7 @@ export const exportCarbonBrushToExcel = (records: any[], filtered: boolean = fal
     ]
   })
 
-  const columnWidths = [15, 25, 15, 12, 15, 15, 15, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 25, 25, 20, 30]
+  const columnWidths = [15, 25, 15, 12, 15, 15, 15, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 25, 25, 20, 30]
   const filename = `carbon-brush-${filtered ? 'filtered-' : ''}${new Date().toISOString().split('T')[0]}.xlsx`
   
   exportToExcel({
@@ -541,18 +561,6 @@ export const exportSingleWindingResistanceToExcel = (record: any) => {
     ['Phase U-G DAR Result', `${safeGet(record, 'darValues.results.ug_result', 0)} (Min: ≥1.25)`],
     ['Phase V-G DAR Result', `${safeGet(record, 'darValues.results.vg_result', 0)} (Min: ≥1.25)`],
     ['Phase W-G DAR Result', `${safeGet(record, 'darValues.results.wg_result', 0)} (Min: ≥1.25)`],
-    ['', ''],
-    ['⚙️ RDI RELAY SETTINGS', ''],
-    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
-    ['🔵 RDI Set 1 (68-70):', ''],
-    ['RDI-68 Relay', safeGet(record, 'rdiSet1.rdi_68', 'Off')],
-    ['RDI-69 Relay', safeGet(record, 'rdiSet1.rdi_69', 'Off')],
-    ['RDI-70 Relay', safeGet(record, 'rdiSet1.rdi_70', 'Off')],
-    ['', ''],
-    ['🟢 RDI Set 2 (51-53):', ''],
-    ['RDI-51 Relay', safeGet(record, 'rdiSet2.rdi_51', 'Off')],
-    ['RDI-52 Relay', safeGet(record, 'rdiSet2.rdi_52', 'Off')],
-    ['RDI-53 Relay', safeGet(record, 'rdiSet2.rdi_53', 'Off')],
     ['', ''],
     ['🎯 OVERALL ASSESSMENT', ''],
     ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
@@ -767,13 +775,9 @@ export const exportSingleWindingResistanceToExcel = (record: any) => {
 export const exportSingleCarbonBrushToExcel = (record: any) => {
   // Calculate status based on measurements
   const measurements = record.measurements || {}
-  const brushValues = [
-    measurements.brush1A, measurements.brush1B,
-    measurements.brush2A, measurements.brush2B, 
-    measurements.brush3A, measurements.brush3B,
-    measurements.brush4A, measurements.brush4B,
-    measurements.brush5A, measurements.brush5B
-  ].filter(val => val !== undefined && val !== null && val > 0)
+  const brushValues = Object.values(measurements)
+    .filter(val => val !== undefined && val !== null && typeof val === 'number' && val > 0)
+    .map(val => val as number)
   
   const minBrush = brushValues.length > 0 ? Math.min(...brushValues) : 0
   const slipRingIr = record.slipRingIr || 0
@@ -817,16 +821,36 @@ export const exportSingleCarbonBrushToExcel = (record: any) => {
     ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
     ['📏 Reference Standards: H≥25mm, B=32mm, L=50mm', ''],
     ['', ''],
-    ['Brush Position 1A (mm)', `${safeGet(record, 'measurements.brush1A', 0)} mm`],
-    ['Brush Position 1B (mm)', `${safeGet(record, 'measurements.brush1B', 0)} mm`],
-    ['Brush Position 2A (mm)', `${safeGet(record, 'measurements.brush2A', 0)} mm`],
-    ['Brush Position 2B (mm)', `${safeGet(record, 'measurements.brush2B', 0)} mm`],
-    ['Brush Position 3A (mm)', `${safeGet(record, 'measurements.brush3A', 0)} mm`],
-    ['Brush Position 3B (mm)', `${safeGet(record, 'measurements.brush3B', 0)} mm`],
-    ['Brush Position 4A (mm)', `${safeGet(record, 'measurements.brush4A', 0)} mm`],
-    ['Brush Position 4B (mm)', `${safeGet(record, 'measurements.brush4B', 0)} mm`],
-    ['Brush Position 5A (mm)', `${safeGet(record, 'measurements.brush5A', 0)} mm`],
-    ['Brush Position 5B (mm)', `${safeGet(record, 'measurements.brush5B', 0)} mm`],
+    ['Brush Holder 1A Inner (mm)', `${safeGet(record, 'measurements.1A_inner', 0)} mm`],
+    ['Brush Holder 1A Center (mm)', `${safeGet(record, 'measurements.1A_center', 0)} mm`],
+    ['Brush Holder 1A Outer (mm)', `${safeGet(record, 'measurements.1A_outer', 0)} mm`],
+    ['Brush Holder 1B Inner (mm)', `${safeGet(record, 'measurements.1B_inner', 0)} mm`],
+    ['Brush Holder 1B Center (mm)', `${safeGet(record, 'measurements.1B_center', 0)} mm`],
+    ['Brush Holder 1B Outer (mm)', `${safeGet(record, 'measurements.1B_outer', 0)} mm`],
+    ['Brush Holder 2A Inner (mm)', `${safeGet(record, 'measurements.2A_inner', 0)} mm`],
+    ['Brush Holder 2A Center (mm)', `${safeGet(record, 'measurements.2A_center', 0)} mm`],
+    ['Brush Holder 2A Outer (mm)', `${safeGet(record, 'measurements.2A_outer', 0)} mm`],
+    ['Brush Holder 2B Inner (mm)', `${safeGet(record, 'measurements.2B_inner', 0)} mm`],
+    ['Brush Holder 2B Center (mm)', `${safeGet(record, 'measurements.2B_center', 0)} mm`],
+    ['Brush Holder 2B Outer (mm)', `${safeGet(record, 'measurements.2B_outer', 0)} mm`],
+    ['Brush Holder 3A Inner (mm)', `${safeGet(record, 'measurements.3A_inner', 0)} mm`],
+    ['Brush Holder 3A Center (mm)', `${safeGet(record, 'measurements.3A_center', 0)} mm`],
+    ['Brush Holder 3A Outer (mm)', `${safeGet(record, 'measurements.3A_outer', 0)} mm`],
+    ['Brush Holder 3B Inner (mm)', `${safeGet(record, 'measurements.3B_inner', 0)} mm`],
+    ['Brush Holder 3B Center (mm)', `${safeGet(record, 'measurements.3B_center', 0)} mm`],
+    ['Brush Holder 3B Outer (mm)', `${safeGet(record, 'measurements.3B_outer', 0)} mm`],
+    ['Brush Holder 4A Inner (mm)', `${safeGet(record, 'measurements.4A_inner', 0)} mm`],
+    ['Brush Holder 4A Center (mm)', `${safeGet(record, 'measurements.4A_center', 0)} mm`],
+    ['Brush Holder 4A Outer (mm)', `${safeGet(record, 'measurements.4A_outer', 0)} mm`],
+    ['Brush Holder 4B Inner (mm)', `${safeGet(record, 'measurements.4B_inner', 0)} mm`],
+    ['Brush Holder 4B Center (mm)', `${safeGet(record, 'measurements.4B_center', 0)} mm`],
+    ['Brush Holder 4B Outer (mm)', `${safeGet(record, 'measurements.4B_outer', 0)} mm`],
+    ['Brush Holder 5A Inner (mm)', `${safeGet(record, 'measurements.5A_inner', 0)} mm`],
+    ['Brush Holder 5A Center (mm)', `${safeGet(record, 'measurements.5A_center', 0)} mm`],
+    ['Brush Holder 5A Outer (mm)', `${safeGet(record, 'measurements.5A_outer', 0)} mm`],
+    ['Brush Holder 5B Inner (mm)', `${safeGet(record, 'measurements.5B_inner', 0)} mm`],
+    ['Brush Holder 5B Center (mm)', `${safeGet(record, 'measurements.5B_center', 0)} mm`],
+    ['Brush Holder 5B Outer (mm)', `${safeGet(record, 'measurements.5B_outer', 0)} mm`],
     ['', ''],
     ['⚡ SLIP RING MEASUREMENTS', ''],
     ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],

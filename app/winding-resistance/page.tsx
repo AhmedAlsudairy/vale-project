@@ -119,18 +119,7 @@ export default function WindingResistancePage() {
       vg_result: 0, // Manual DAR result for V-G  
       wg_result: 0, // Manual DAR result for W-G
     },
-    // RDI Relay Settings (Set 1)
-    rdi_set1: {
-      rdi_68: "Off", // RDI-68 Relay
-      rdi_69: "Off", // RDI-69 Relay
-      rdi_70: "Off", // RDI-70 Relay
-    },
-    // RDI Relay Settings (Set 2)
-    rdi_set2: {
-      rdi_51: "Off", // RDI-51 Relay
-      rdi_52: "Off", // RDI-52 Relay
-      rdi_53: "Off", // RDI-53 Relay
-    },
+
     remarks: "",
   })
 
@@ -172,10 +161,11 @@ export default function WindingResistancePage() {
     return "0.00"
   }
 
-  // Helper function to check if RDI set is filled (any relay not "Off")
-  const isRDISetFilled = (setName: 'rdi_set1' | 'rdi_set2') => {
-    const set = formData[setName]
-    return Object.values(set).some(value => value !== "Off")
+  // Helper function to check if any important data is filled
+  const hasSignificantData = () => {
+    return Object.values(formData.winding_resistance).some(value => value > 0) ||
+           Object.values(formData.ir_values).some(value => value > 0) ||
+           Object.values(formData.dar_values).some(value => value > 0)
   }
 
   // Helper function to get voltage title based on equipment type
@@ -481,8 +471,6 @@ export default function WindingResistancePage() {
         dar_values: formData.dar_values,
         primary_pi: formData.primary_pi, // Include Primary PI data
         dar_results: formData.dar_results, // Include manual DAR results
-        rdi_set1: formData.rdi_set1, // Include RDI Set 1 data
-        rdi_set2: formData.rdi_set2, // Include RDI Set 2 data
         remarks: formData.remarks,
       }
 
@@ -555,16 +543,6 @@ export default function WindingResistancePage() {
             ug_result: 0,
             vg_result: 0,
             wg_result: 0,
-          },
-          rdi_set1: {
-            rdi_68: "Off",
-            rdi_69: "Off",
-            rdi_70: "Off",
-          },
-          rdi_set2: {
-            rdi_51: "Off",
-            rdi_52: "Off",
-            rdi_53: "Off",
           },
           remarks: "",
         })
@@ -1412,161 +1390,6 @@ export default function WindingResistancePage() {
                         Formula: DAR = IR(1min) / IR(30sec)
                       </p>
                     </div>
-                  </div>
-                </div>
-
-                {/* RDI Relay Settings */}
-                <div className="space-y-4">
-                  <h3 className="text-base sm:text-lg font-semibold">RDI Relay Settings</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Configure RDI relay settings. Both sets are optional and can be used independently.
-                  </p>
-                  
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* RDI Set 1 */}
-                    <div className="p-4 border rounded-lg">
-                      <h4 className="font-medium text-sm mb-3 flex items-center">
-                        <span className="inline-block w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
-                        RDI Set 1 (68-70)
-                      </h4>
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <Label className="text-xs">RDI-68</Label>
-                            <Select
-                              value={formData.rdi_set1.rdi_68}
-                              onValueChange={(value) => setFormData(prev => ({
-                                ...prev,
-                                rdi_set1: { ...prev.rdi_set1, rdi_68: value }
-                              }))}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Off">Off</SelectItem>
-                                <SelectItem value="On">On</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label className="text-xs">RDI-69</Label>
-                            <Select
-                              value={formData.rdi_set1.rdi_69}
-                              onValueChange={(value) => setFormData(prev => ({
-                                ...prev,
-                                rdi_set1: { ...prev.rdi_set1, rdi_69: value }
-                              }))}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Off">Off</SelectItem>
-                                <SelectItem value="On">On</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label className="text-xs">RDI-70</Label>
-                            <Select
-                              value={formData.rdi_set1.rdi_70}
-                              onValueChange={(value) => setFormData(prev => ({
-                                ...prev,
-                                rdi_set1: { ...prev.rdi_set1, rdi_70: value }
-                              }))}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Off">Off</SelectItem>
-                                <SelectItem value="On">On</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* RDI Set 2 */}
-                    <div className="p-4 border rounded-lg">
-                      <h4 className="font-medium text-sm mb-3 flex items-center">
-                        <span className="inline-block w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                        RDI Set 2 (51-53)
-                      </h4>
-                      <div className="space-y-3">
-                        <div className="grid grid-cols-3 gap-2">
-                          <div>
-                            <Label className="text-xs">RDI-51</Label>
-                            <Select
-                              value={formData.rdi_set2.rdi_51}
-                              onValueChange={(value) => setFormData(prev => ({
-                                ...prev,
-                                rdi_set2: { ...prev.rdi_set2, rdi_51: value }
-                              }))}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Off">Off</SelectItem>
-                                <SelectItem value="On">On</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label className="text-xs">RDI-52</Label>
-                            <Select
-                              value={formData.rdi_set2.rdi_52}
-                              onValueChange={(value) => setFormData(prev => ({
-                                ...prev,
-                                rdi_set2: { ...prev.rdi_set2, rdi_52: value }
-                              }))}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Off">Off</SelectItem>
-                                <SelectItem value="On">On</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div>
-                            <Label className="text-xs">RDI-53</Label>
-                            <Select
-                              value={formData.rdi_set2.rdi_53}
-                              onValueChange={(value) => setFormData(prev => ({
-                                ...prev,
-                                rdi_set2: { ...prev.rdi_set2, rdi_53: value }
-                              }))}
-                            >
-                              <SelectTrigger className="h-8 text-xs">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Off">Off</SelectItem>
-                                <SelectItem value="On">On</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Status indicator */}
-                  <div className="text-xs text-muted-foreground bg-gray-50 p-2 rounded">
-                    {isRDISetFilled('rdi_set1') && isRDISetFilled('rdi_set2') ? (
-                      <span className="text-blue-600">ℹ️ Both RDI sets are configured.</span>
-                    ) : isRDISetFilled('rdi_set1') ? (
-                      <span className="text-blue-600">ℹ️ RDI Set 1 (68-70) is configured.</span>
-                    ) : isRDISetFilled('rdi_set2') ? (
-                      <span className="text-green-600">ℹ️ RDI Set 2 (51-53) is configured.</span>
-                    ) : (
-                      <span>💡 All RDI relays are optional. Configure as needed.</span>
-                    )}
                   </div>
                 </div>
 
