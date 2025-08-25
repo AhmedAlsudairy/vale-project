@@ -1126,8 +1126,8 @@ export default function ThermographyPage() {
                               <SelectValue placeholder="Select status" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="OK">OK</SelectItem>
-                              <SelectItem value="Not OK">Not OK</SelectItem>
+                              <SelectItem value="on">On</SelectItem>
+                              <SelectItem value="off">Off</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -1141,8 +1141,8 @@ export default function ThermographyPage() {
                               <SelectValue placeholder="Select status" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="OK">OK</SelectItem>
-                              <SelectItem value="Not OK">Not OK</SelectItem>
+                              <SelectItem value="on">On</SelectItem>
+                              <SelectItem value="off">Off</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -1156,8 +1156,8 @@ export default function ThermographyPage() {
                               <SelectValue placeholder="Select status" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="OK">OK</SelectItem>
-                              <SelectItem value="Not OK">Not OK</SelectItem>
+                              <SelectItem value="on">On</SelectItem>
+                              <SelectItem value="off">Off</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
