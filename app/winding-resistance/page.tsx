@@ -1063,10 +1063,10 @@ export default function WindingResistancePage() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[
-                      { phase: "U-G", key30: "ug_30sec", key1: "ug_1min" },
-                      { phase: "V-G", key30: "vg_30sec", key1: "vg_1min" },
-                      { phase: "W-G", key30: "wg_30sec", key1: "wg_1min" },
-                    ].map(({ phase, key30, key1 }) => {
+                      { phase: "U-G", key30: "ug_30sec", key1: "ug_1min", resultKey: "ug_result" },
+                      { phase: "V-G", key30: "vg_30sec", key1: "vg_1min", resultKey: "vg_result" },
+                      { phase: "W-G", key30: "wg_30sec", key1: "wg_1min", resultKey: "wg_result" },
+                    ].map(({ phase, key30, key1, resultKey }) => {
                       const darValue = calculateDAR(phase.toLowerCase().split("-")[0] as "ug" | "vg" | "wg")
                       const darStatus = getDARStatus(darValue)
 
@@ -1124,6 +1124,27 @@ export default function WindingResistancePage() {
                                   }))
                                 }
                                 placeholder="GΩ"
+                                className="w-full text-sm"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor={`dar_${resultKey}`} className="text-xs">
+                                DAR Result (Manual)
+                              </Label>
+                              <Input
+                                id={`dar_${resultKey}`}
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={formData.dar_results[resultKey as keyof typeof formData.dar_results]}
+                                onChange={(e) => setFormData(prev => ({ 
+                                  ...prev, 
+                                  dar_results: {
+                                    ...prev.dar_results,
+                                    [resultKey]: parseFloat(e.target.value) || 0
+                                  }
+                                }))}
+                                placeholder="DAR"
                                 className="w-full text-sm"
                               />
                             </div>
@@ -1320,78 +1341,7 @@ export default function WindingResistancePage() {
                   </div>
                 </div>
 
-                {/* Manual Results Entry */}
-                <div className="space-y-4">
-                  <h3 className="text-base sm:text-lg font-semibold">Results (Manual Entry)</h3>
-                  <div className="grid grid-cols-1 gap-4">
-                    {/* Manual DAR Results */}
-                    <div className="p-3 border rounded-lg">
-                      <Label className="text-sm font-medium">DAR Results</Label>
-                      <div className="space-y-2 mt-2">
-                        <div>
-                          <Label htmlFor="dar_ug" className="text-xs">U-G DAR Result</Label>
-                          <Input
-                            id="dar_ug"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={formData.dar_results.ug_result}
-                            onChange={(e) => setFormData(prev => ({ 
-                              ...prev, 
-                              dar_results: {
-                                ...prev.dar_results,
-                                ug_result: parseFloat(e.target.value) || 0
-                              }
-                            }))}
-                            placeholder="U-G DAR"
-                            className="text-sm"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="dar_vg" className="text-xs">V-G DAR Result</Label>
-                          <Input
-                            id="dar_vg"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={formData.dar_results.vg_result}
-                            onChange={(e) => setFormData(prev => ({ 
-                              ...prev, 
-                              dar_results: {
-                                ...prev.dar_results,
-                                vg_result: parseFloat(e.target.value) || 0
-                              }
-                            }))}
-                            placeholder="V-G DAR"
-                            className="text-sm"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="dar_wg" className="text-xs">W-G DAR Result</Label>
-                          <Input
-                            id="dar_wg"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={formData.dar_results.wg_result}
-                            onChange={(e) => setFormData(prev => ({ 
-                              ...prev, 
-                              dar_results: {
-                                ...prev.dar_results,
-                                wg_result: parseFloat(e.target.value) || 0
-                              }
-                            }))}
-                            placeholder="W-G DAR"
-                            className="text-sm"
-                          />
-                        </div>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Formula: DAR = IR(1min) / IR(30sec)
-                      </p>
-                    </div>
-                  </div>
-                </div>
+
 
                 {/* Remarks */}
                 <div className="space-y-2">
