@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { sendCarbonBrushEmail } from "@/lib/email"
 
 // Mock data for when database is not available
 const mockRecords = [
@@ -127,6 +128,15 @@ export async function POST(request: NextRequest) {
       },
     })
 
+    // Send email notification with Excel attachment
+    try {
+      await sendCarbonBrushEmail(record)
+      console.log("Carbon brush email notification sent successfully")
+    } catch (emailError) {
+      console.error("Failed to send carbon brush email notification:", emailError)
+      // Don't fail the API call if email fails
+    }
+
     return NextResponse.json(record)
   } catch (error) {
     console.error("Database error:", error)
@@ -156,6 +166,15 @@ export async function POST(request: NextRequest) {
       equipment: {
         equipmentName: body.equipment_name,
       },
+    }
+
+    // Send email notification with Excel attachment (mock mode)
+    try {
+      await sendCarbonBrushEmail(mockRecord)
+      console.log("Carbon brush email notification sent successfully (mock mode)")
+    } catch (emailError) {
+      console.error("Failed to send carbon brush email notification:", emailError)
+      // Don't fail the API call if email fails
     }
 
     return NextResponse.json(mockRecord)

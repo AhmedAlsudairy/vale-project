@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { sendWindingResistanceEmail } from "@/lib/email"
 
 // Mock data for when database is not available
 const mockRecords = [
@@ -162,6 +163,16 @@ export async function POST(request: NextRequest) {
     })
 
     console.log("Created winding resistance record:", record) // Debug log
+    
+    // Send email notification with Excel attachment
+    try {
+      await sendWindingResistanceEmail(record)
+      console.log("Email notification sent successfully")
+    } catch (emailError) {
+      console.error("Failed to send email notification:", emailError)
+      // Don't fail the API call if email fails
+    }
+    
     return NextResponse.json(record, { status: 201 })
   } catch (error) {
     console.error("Database error:", error)
@@ -194,6 +205,15 @@ export async function POST(request: NextRequest) {
         remarks: body.remarks,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+      }
+
+      // Send email notification with Excel attachment (mock mode)
+      try {
+        await sendWindingResistanceEmail(mockRecord)
+        console.log("Email notification sent successfully (mock mode)")
+      } catch (emailError) {
+        console.error("Failed to send email notification:", emailError)
+        // Don't fail the API call if email fails
       }
 
       return NextResponse.json(mockRecord, { status: 201 })

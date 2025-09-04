@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { PrismaClient } from "@prisma/client"
+import { sendThermographyEmail } from "@/lib/email"
 
 const prisma = new PrismaClient()
 
@@ -153,6 +154,15 @@ export async function POST(request: NextRequest) {
         equipment: true
       }
     })
+
+    // Send email notification with Excel attachment
+    try {
+      await sendThermographyEmail(record)
+      console.log("Thermography email notification sent successfully")
+    } catch (emailError) {
+      console.error("Failed to send thermography email notification:", emailError)
+      // Don't fail the API call if email fails
+    }
 
     return NextResponse.json(record, { status: 201 })
   } catch (error) {
