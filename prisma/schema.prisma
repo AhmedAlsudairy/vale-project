@@ -59,6 +59,7 @@ model WindingResistanceRecord {
   rdiSet2           Json?    @map("rdi_set2") // RDI Set 2 (51-53)
   inspectionDate     DateTime @map("inspection_date")
   doneBy             String?  @map("done_by")
+  workHolder         String?  @map("work_holder")
   remarks            String?
   createdAt          DateTime @default(now()) @map("created_at")
   updatedAt          DateTime @updatedAt @map("updated_at")

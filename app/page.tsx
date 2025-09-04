@@ -62,7 +62,7 @@ export default function HomePage() {
       </div>
 
       {/* Main Feature Cards - Responsive Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 sm:gap-6 mb-8 sm:mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7 gap-4 sm:gap-6 mb-8 sm:mb-12">
         <Card className="hover:shadow-lg transition-all duration-300 hover:scale-105">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
@@ -101,15 +101,32 @@ export default function HomePage() {
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
               <Settings className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-              Winding Resistance
+              Motor Winding Resistance
             </CardTitle>
             <CardDescription className="text-sm sm:text-base">
-              Monitor winding resistance, IR values, and polarization index measurements
+              Monitor motor winding resistance, IR values, and polarization index measurements for motor equipment
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Link href="/winding-resistance">
-              <Button className="w-full text-sm sm:text-base">Start Testing</Button>
+              <Button className="w-full text-sm sm:text-base">Test Motors</Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        <Card className="hover:shadow-lg transition-all duration-300 hover:scale-105">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+              <Settings className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
+              Transformer Testing
+            </CardTitle>
+            <CardDescription className="text-sm sm:text-base">
+              Perform winding resistance and insulation testing for transformer equipment
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Link href="/winding-resistance?type=transformer">
+              <Button className="w-full text-sm sm:text-base">Test Transformers</Button>
             </Link>
           </CardContent>
         </Card>

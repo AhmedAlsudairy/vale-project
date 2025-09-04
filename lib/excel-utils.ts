@@ -470,126 +470,130 @@ export const exportEquipmentToExcel = (equipment: any[], filtered: boolean = fal
 }
 
 // Single record detailed export for winding resistance - Enhanced with Ultra Professional Formatting
+// Single record detailed export for winding resistance - Standard Table Format
 export const exportSingleWindingResistanceToExcel = (record: any) => {
-  const equipmentType = safeGet(record, 'equipment.equipmentType', 'Motor')
-  const voltage = equipmentType.includes('5kv') ? '5kV' : 
-                  equipmentType.includes('500v') ? '500V' : ''
-  const title = voltage ? `${voltage} IR/DAR TEST REPORT` : 'IR/DAR TEST REPORT'
-
-  // Get Primary PI data
+  // Get data safely (handles both legacy and new format)
   const primaryPI = safeGet(record, 'primary5kVPI', {}) || safeGet(record, 'primaryPI', {})
+  const irVals = record.irValues?.values || record.irValues || {}
+  const windingVals = record.windingResistance?.values || record.windingResistance || {}
+  const windingUnits = record.windingResistance?.units || { ry: 'Ω', yb: 'Ω', rb: 'Ω' }
+  const darVals = record.darValues?.values || record.darValues || {}
   
-  // Calculate status and colors
-  const avgIR = (
-    safeGet(record, 'irValues.ug_1min', 0) + 
-    safeGet(record, 'irValues.vg_1min', 0) + 
-    safeGet(record, 'irValues.wg_1min', 0)
-  ) / 3
-  
-  const irStatus = avgIR >= 10 ? 'EXCELLENT (≥10 GΩ)' : avgIR >= 1 ? 'ACCEPTABLE (1-10 GΩ)' : 'POOR (<1 GΩ)'
-  const irStatusColor = avgIR >= 10 ? '16A085' : avgIR >= 1 ? 'F39C12' : 'E74C3C'
-  const irStatusBg = avgIR >= 10 ? 'E8F6F3' : avgIR >= 1 ? 'FEF9E7' : 'FADBD8'
-  
-  const pi = safeGet(primaryPI, 'pi_result', 0) || safeGet(record, 'polarizationIndex', 0)
-  const piStatus = pi >= 4.0 ? 'EXCELLENT (≥4.0)' : pi >= 2.0 ? 'GOOD (2.0-4.0)' : pi >= 1.5 ? 'ACCEPTABLE (1.5-2.0)' : 'POOR (<1.5)'
-  const piStatusColor = pi >= 4.0 ? '16A085' : pi >= 2.0 ? '27AE60' : pi >= 1.5 ? 'F39C12' : 'E74C3C'
-  const piStatusBg = pi >= 4.0 ? 'E8F6F3' : pi >= 2.0 ? 'E8F6F3' : pi >= 1.5 ? 'FEF9E7' : 'FADBD8'
-
+  // Create data array in standard Excel table format (exactly like your example)
   const data = [
-    [title, ''],
-    ['Vale Equipment Management System - Professional Analysis Report', ''],
-    ['═══════════════════════════════════════════════════════════════', ''],
-    ['', ''],
-    ['🏭 EQUIPMENT INFORMATION', ''],
-    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
-    ['Motor No', safeGet(record, 'motorNo', '')],
-    ['Equipment Name', safeGet(record, 'equipment.equipmentName', '')],
-    ['Equipment Type', equipmentType],
-    ['Voltage Rating', voltage || 'Standard'],
-    ['', ''],
-    ['📋 INSPECTION DETAILS', ''],
-    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
-    ['Test Date', formatExcelDate(safeGet(record, 'inspectionDate', ''))],
-    ['Technician', safeGet(record, 'doneBy', '') || 'Not specified'],
-    ['Test Standard', 'IEEE 43-2013 / IEC 60034-1'],
-    ['', ''],
-    ['⚡ WINDING RESISTANCE', ''],
-    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
-    ['Phase R-Y (Ω)', `${safeGet(record, 'windingResistance.ry', 0)} Ω`],
-    ['Phase Y-B (Ω)', `${safeGet(record, 'windingResistance.yb', 0)} Ω`],
-    ['Phase R-B (Ω)', `${safeGet(record, 'windingResistance.rb', 0)} Ω`],
-    ['Resistance Balance', 'Within acceptable limits'],
-    ['', ''],
-    ['🔬 INSULATION RESISTANCE (IR)', ''],
-    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
-    ['📊 Test Conditions: 500V DC, 25°C ambient', ''],
-    ['', ''],
-    ['Phase U-Ground (1 min)', `${safeGet(record, 'irValues.ug_1min', 0)} GΩ (Min: ≥1.0 GΩ)`],
-    ['Phase U-Ground (10 min)', `${safeGet(record, 'irValues.ug_10min', 0)} GΩ`],
-    ['Phase V-Ground (1 min)', `${safeGet(record, 'irValues.vg_1min', 0)} GΩ (Min: ≥1.0 GΩ)`],
-    ['Phase V-Ground (10 min)', `${safeGet(record, 'irValues.vg_10min', 0)} GΩ`],
-    ['Phase W-Ground (1 min)', `${safeGet(record, 'irValues.wg_1min', 0)} GΩ (Min: ≥1.0 GΩ)`],
-    ['Phase W-Ground (10 min)', `${safeGet(record, 'irValues.wg_10min', 0)} GΩ`],
-    ['', ''],
-    ['� PRIMARY PI MEASUREMENTS', ''],
-    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
-    ['Primary U-Ground (1 min)', `${safeGet(primaryPI, 'ug_1min', 0)} GΩ`],
-    ['Primary U-Ground (10 min)', `${safeGet(primaryPI, 'ug_10min', 0)} GΩ`],
-    ['Primary V-Ground (1 min)', `${safeGet(primaryPI, 'vg_1min', 0)} GΩ`],
-    ['Primary V-Ground (10 min)', `${safeGet(primaryPI, 'vg_10min', 0)} GΩ`],
-    ['Primary W-Ground (1 min)', `${safeGet(primaryPI, 'wg_1min', 0)} GΩ`],
-    ['Primary W-Ground (10 min)', `${safeGet(primaryPI, 'wg_10min', 0)} GΩ`],
-    ['Primary PI Mode', (safeGet(primaryPI, 'pi_mode', 'manual') || 'manual').charAt(0).toUpperCase() + (safeGet(primaryPI, 'pi_mode', 'manual') || 'manual').slice(1)],
-    ['', ''],
-    ['📈 POLARIZATION INDEX (PI)', ''],
-    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
-    ['Primary PI Result', `${safeGet(primaryPI, 'pi_result', 0)} (Min: ≥2.0)`],
-    ['PI Assessment', piStatus],
-    ['📋 PI Interpretation', pi >= 4.0 ? 'Outstanding insulation condition' : pi >= 2.0 ? 'Good insulation condition' : pi >= 1.5 ? 'Questionable insulation' : 'Poor insulation - investigate'],
-    ['', ''],
-    ['⚙️ DIELECTRIC ABSORPTION RATIO (DAR)', ''],
-    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
-    ['📊 Raw DAR Measurements:', ''],
-    ['Phase U DAR (30sec)', `${safeGet(record, 'darValues.ug_30sec', 0)} GΩ`],
-    ['Phase U DAR (1min)', `${safeGet(record, 'darValues.ug_1min', 0)} GΩ`],
-    ['Phase V DAR (30sec)', `${safeGet(record, 'darValues.vg_30sec', 0)} GΩ`],
-    ['Phase V DAR (1min)', `${safeGet(record, 'darValues.vg_1min', 0)} GΩ`],
-    ['Phase W DAR (30sec)', `${safeGet(record, 'darValues.wg_30sec', 0)} GΩ`],
-    ['Phase W DAR (1min)', `${safeGet(record, 'darValues.wg_1min', 0)} GΩ`],
-    ['', ''],
-    ['📈 DAR Results (Manual Entry):', ''],
-    ['Phase U-G DAR Result', `${safeGet(record, 'darValues.results.ug_result', 0)} (Min: ≥1.25)`],
-    ['Phase V-G DAR Result', `${safeGet(record, 'darValues.results.vg_result', 0)} (Min: ≥1.25)`],
-    ['Phase W-G DAR Result', `${safeGet(record, 'darValues.results.wg_result', 0)} (Min: ≥1.25)`],
-    ['', ''],
-    ['🎯 OVERALL ASSESSMENT', ''],
-    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
-    ['🔍 IR Status', irStatus],
-    ['📊 Average IR Value', `${avgIR.toFixed(2)} GΩ`],
-    ['⚡ Minimum IR Standard', '1.0 GΩ (IEEE 43-2013)'],
-    ['🎯 Recommended Action', avgIR >= 10 ? 'Continue normal operation' : avgIR >= 1 ? 'Monitor condition trend' : 'Immediate investigation required'],
-    ['', ''],
-    ['💬 TECHNICIAN REMARKS', ''],
-    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
-    ['Notes', safeGet(record, 'remarks', 'No specific remarks recorded')],
-    ['', ''],
-    ['📅 REPORT INFORMATION', ''],
-    ['━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', ''],
-    ['Report Generated', formatExcelDate(new Date())],
-    ['Generated By', 'Vale Equipment Management System v2.0'],
-    ['Report Type', 'IR/DAR Test - Comprehensive Analysis'],
-    ['Document Security', 'Internal Use - Electrical Maintenance'],
-    ['Next Test Due', 'As per maintenance schedule']
+    // Header Row
+    [
+      'Motor No', 'Equipment Name', 'Equipment Type', 'Inspection Date', 'Done By', 'Work Holder',
+      'Winding Resistance R-Y (Ω)', 'Winding Resistance Y-B (Ω)', 'Winding Resistance R-B (Ω)',
+      'IR UG 1min (GΩ)', 'IR UG 10min (GΩ)', 'IR VG 1min (GΩ)', 'IR VG 10min (GΩ)', 'IR WG 1min (GΩ)', 'IR WG 10min (GΩ)',
+      'PI UG 1min (GΩ)', 'PI UG 10min (GΩ)', 'PI VG 1min (GΩ)', 'PI VG 10min (GΩ)', 'PI WG 1min (GΩ)', 'PI WG 10min (GΩ)',
+      'PI Mode', 'PI Result', 
+      'DAR UG 30sec (GΩ)', 'DAR UG 1min (GΩ)', 'DAR VG 30sec (GΩ)', 'DAR VG 1min (GΩ)', 'DAR WG 30sec (GΩ)', 'DAR WG 1min (GΩ)',
+      'DAR UG Result', 'DAR VG Result', 'DAR WG Result', 'Status', 'Remarks'
+    ],
+    
+    // Data Row
+    [
+      safeGet(record, 'motorNo', ''),
+      safeGet(record, 'equipment.equipmentName', ''),
+      safeGet(record, 'equipment.equipmentType', 'Motor'),
+      formatExcelDate(safeGet(record, 'inspectionDate', '')),
+      safeGet(record, 'doneBy', ''),
+      safeGet(record, 'workHolder', ''),
+      
+      // Winding Resistance values with units
+      `${windingVals.ry || 0} ${windingUnits.ry || 'Ω'}`,
+      `${windingVals.yb || 0} ${windingUnits.yb || 'Ω'}`,
+      `${windingVals.rb || 0} ${windingUnits.rb || 'Ω'}`,
+      
+      // IR values with minimum requirements
+      `${irVals.ug_1min || 0} GΩ (Min: ≥1.0)`,
+      `${irVals.ug_10min || 0} GΩ`,
+      `${irVals.vg_1min || 0} GΩ (Min: ≥1.0)`,
+      `${irVals.vg_10min || 0} GΩ`,
+      `${irVals.wg_1min || 0} GΩ (Min: ≥1.0)`,
+      `${irVals.wg_10min || 0} GΩ`,
+      
+      // PI values
+      `${safeGet(primaryPI, 'ug_pi_1min', 0)} GΩ`,
+      `${safeGet(primaryPI, 'ug_pi_10min', 0)} GΩ`,
+      `${safeGet(primaryPI, 'vg_pi_1min', 0)} GΩ`,
+      `${safeGet(primaryPI, 'vg_pi_10min', 0)} GΩ`,
+      `${safeGet(primaryPI, 'wg_pi_1min', 0)} GΩ`,
+      `${safeGet(primaryPI, 'wg_pi_10min', 0)} GΩ`,
+      
+      // PI Mode and Result
+      safeGet(primaryPI, 'mode', 'Manual'),
+      `${safeGet(primaryPI, 'pi_result', 0)} (Min: ≥2.0)`,
+      
+      // DAR values
+      `${darVals.ug_30sec || 0} GΩ`,
+      `${darVals.ug_1min || 0} GΩ`,
+      `${darVals.vg_30sec || 0} GΩ`,
+      `${darVals.vg_1min || 0} GΩ`,
+      `${darVals.wg_30sec || 0} GΩ`,
+      `${darVals.wg_1min || 0} GΩ`,
+      
+      // DAR Results
+      `${darVals.ug_dar || 0} (Min: ≥1.25)`,
+      `${darVals.vg_dar || 0} (Min: ≥1.25)`,
+      `${darVals.wg_dar || 0} (Min: ≥1.25)`,
+      
+      // Overall Status
+      (() => {
+        const avgIR = ((irVals.ug_1min || 0) + (irVals.vg_1min || 0) + (irVals.wg_1min || 0)) / 3
+        if (avgIR >= 10) return 'Good (≥10 GΩ)'
+        if (avgIR >= 1) return 'Acceptable (1-10 GΩ)'
+        return 'Poor (<1 GΩ)'
+      })(),
+      
+      safeGet(record, 'remarks', '')
+    ]
   ]
 
-  // Create workbook with ultra professional styling
+  // Create workbook with standard table formatting
   const workbook = XLSX.utils.book_new()
   const worksheet = XLSX.utils.aoa_to_sheet(data)
   
-  // Set optimized column widths
-  worksheet['!cols'] = [{ wch: 45 }, { wch: 40 }]
-  
-  // Ultra professional styling
+  // Set optimized column widths for all columns
+  worksheet['!cols'] = [
+    { wch: 15 }, // Motor No
+    { wch: 25 }, // Equipment Name
+    { wch: 15 }, // Equipment Type
+    { wch: 15 }, // Inspection Date
+    { wch: 20 }, // Done By
+    { wch: 15 }, // Work Holder
+    { wch: 18 }, // Winding Resistance R-Y
+    { wch: 18 }, // Winding Resistance Y-B
+    { wch: 18 }, // Winding Resistance R-B
+    { wch: 15 }, // IR UG 1min
+    { wch: 15 }, // IR UG 10min
+    { wch: 15 }, // IR VG 1min
+    { wch: 15 }, // IR VG 10min
+    { wch: 15 }, // IR WG 1min
+    { wch: 15 }, // IR WG 10min
+    { wch: 15 }, // PI UG 1min
+    { wch: 15 }, // PI UG 10min
+    { wch: 15 }, // PI VG 1min
+    { wch: 15 }, // PI VG 10min
+    { wch: 15 }, // PI WG 1min
+    { wch: 15 }, // PI WG 10min
+    { wch: 12 }, // PI Mode
+    { wch: 15 }, // PI Result
+    { wch: 15 }, // DAR UG 30sec
+    { wch: 15 }, // DAR UG 1min
+    { wch: 15 }, // DAR VG 30sec
+    { wch: 15 }, // DAR VG 1min
+    { wch: 15 }, // DAR WG 30sec
+    { wch: 15 }, // DAR WG 1min
+    { wch: 18 }, // DAR UG Result
+    { wch: 18 }, // DAR VG Result
+    { wch: 18 }, // DAR WG Result
+    { wch: 20 }, // Status
+    { wch: 30 }  // Remarks
+  ]
+
+  // Professional styling for standard Excel table
   const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1')
   for (let row = 0; row <= range.e.r; row++) {
     for (let col = range.s.c; col <= range.e.c; col++) {
@@ -598,138 +602,25 @@ export const exportSingleWindingResistanceToExcel = (record: any) => {
       
       const cellValue = worksheet[cellAddress].v
       
-      // Main title (row 0)
+      // Header row styling
       if (row === 0) {
         worksheet[cellAddress].s = {
-          font: { bold: true, sz: 18, color: { rgb: "FFFFFF" }, name: "Calibri" },
-          fill: { fgColor: { rgb: "1B4F72" }, patternType: "solid" },
-          alignment: { horizontal: "center", vertical: "center" },
+          font: { bold: true, sz: 11, color: { rgb: "FFFFFF" }, name: "Calibri" },
+          fill: { fgColor: { rgb: "1F4E79" }, patternType: "solid" },
+          alignment: { horizontal: "center", vertical: "center", wrapText: true },
           border: {
-            top: { style: "thick", color: { rgb: "0B2A42" } },
-            bottom: { style: "thick", color: { rgb: "0B2A42" } },
-            left: { style: "thick", color: { rgb: "0B2A42" } },
-            right: { style: "thick", color: { rgb: "0B2A42" } }
+            top: { style: "thick", color: { rgb: "1F4E79" } },
+            bottom: { style: "thick", color: { rgb: "1F4E79" } },
+            left: { style: "medium", color: { rgb: "1F4E79" } },
+            right: { style: "medium", color: { rgb: "1F4E79" } }
           }
         }
       }
-      // Subtitle (row 1)
-      else if (row === 1) {
-        worksheet[cellAddress].s = {
-          font: { italic: true, sz: 12, color: { rgb: "2C3E50" }, name: "Calibri" },
-          fill: { fgColor: { rgb: "D5DBDB" }, patternType: "solid" },
-          alignment: { horizontal: "center", vertical: "center" },
-          border: {
-            top: { style: "thin", color: { rgb: "85929E" } },
-            bottom: { style: "medium", color: { rgb: "85929E" } },
-            left: { style: "medium", color: { rgb: "85929E" } },
-            right: { style: "medium", color: { rgb: "85929E" } }
-          }
-        }
-      }
-      // Decorative divider (row 2)
-      else if (row === 2) {
-        worksheet[cellAddress].s = {
-          font: { sz: 8, color: { rgb: "5D6D7E" }, name: "Calibri" },
-          fill: { fgColor: { rgb: "EBF5FB" }, patternType: "solid" },
-          alignment: { horizontal: "center", vertical: "center" }
-        }
-      }
-      // Section headers with emojis
-      else if (col === 0 && typeof cellValue === 'string' && (cellValue.includes('🏭') || cellValue.includes('📋') || cellValue.includes('⚡') || 
-        cellValue.includes('🔬') || cellValue.includes('📈') || cellValue.includes('⚙️') || cellValue.includes('🎯') || cellValue.includes('💬') || cellValue.includes('📅'))) {
-        worksheet[cellAddress].s = {
-          font: { bold: true, sz: 14, color: { rgb: "FFFFFF" }, name: "Calibri" },
-          fill: { fgColor: { rgb: "2874A6" }, patternType: "solid" },
-          alignment: { horizontal: "left", vertical: "center" },
-          border: {
-            top: { style: "thick", color: { rgb: "1B4F72" } },
-            bottom: { style: "thick", color: { rgb: "1B4F72" } },
-            left: { style: "thick", color: { rgb: "1B4F72" } },
-            right: { style: "thick", color: { rgb: "1B4F72" } }
-          }
-        }
-      }
-      // Section dividers
-      else if (col === 0 && typeof cellValue === 'string' && cellValue.includes('━')) {
-        worksheet[cellAddress].s = {
-          font: { sz: 8, color: { rgb: "2874A6" }, name: "Calibri" },
-          fill: { fgColor: { rgb: "EBF5FB" }, patternType: "solid" },
-          alignment: { horizontal: "left", vertical: "center" }
-        }
-      }
-      // Test conditions highlight
-      else if (col === 0 && typeof cellValue === 'string' && cellValue.includes('📊 Test Conditions')) {
-        worksheet[cellAddress].s = {
-          font: { italic: true, sz: 10, color: { rgb: "7D3C98" }, name: "Calibri" },
-          fill: { fgColor: { rgb: "F4ECF7" }, patternType: "solid" },
-          alignment: { horizontal: "left", vertical: "center" },
-          border: {
-            top: { style: "thin", color: { rgb: "BB8FCE" } },
-            bottom: { style: "thin", color: { rgb: "BB8FCE" } },
-            left: { style: "thin", color: { rgb: "BB8FCE" } },
-            right: { style: "thin", color: { rgb: "BB8FCE" } }
-          }
-        }
-      }
-      // IR Status row with dynamic coloring
-      else if (cellValue === irStatus) {
-        worksheet[cellAddress].s = {
-          font: { bold: true, sz: 12, color: { rgb: irStatusColor }, name: "Calibri" },
-          fill: { fgColor: { rgb: irStatusBg }, patternType: "solid" },
-          alignment: { horizontal: "left", vertical: "center" },
-          border: {
-            top: { style: "medium", color: { rgb: irStatusColor } },
-            bottom: { style: "medium", color: { rgb: irStatusColor } },
-            left: { style: "medium", color: { rgb: irStatusColor } },
-            right: { style: "medium", color: { rgb: irStatusColor } }
-          }
-        }
-      }
-      // PI Status row with dynamic coloring
-      else if (cellValue === piStatus) {
-        worksheet[cellAddress].s = {
-          font: { bold: true, sz: 12, color: { rgb: piStatusColor }, name: "Calibri" },
-          fill: { fgColor: { rgb: piStatusBg }, patternType: "solid" },
-          alignment: { horizontal: "left", vertical: "center" },
-          border: {
-            top: { style: "medium", color: { rgb: piStatusColor } },
-            bottom: { style: "medium", color: { rgb: piStatusColor } },
-            left: { style: "medium", color: { rgb: piStatusColor } },
-            right: { style: "medium", color: { rgb: piStatusColor } }
-          }
-        }
-      }
-      // IR value highlighting with color coding
-      else if (col === 1 && typeof cellValue === 'string' && cellValue.includes('GΩ') && !cellValue.includes('Min:') && !cellValue.includes('IEEE')) {
-        const value = parseFloat(cellValue)
-        let valueColor = '2ECC71' // Green for good values
-        let valueBg = 'E8F8F5'
-        
-        if (value < 1) {
-          valueColor = 'E74C3C' // Red for critical
-          valueBg = 'FADBD8'
-        } else if (value < 10) {
-          valueColor = 'F39C12' // Orange for acceptable
-          valueBg = 'FEF9E7'
-        }
-        
-        worksheet[cellAddress].s = {
-          font: { bold: true, sz: 11, color: { rgb: valueColor }, name: "Calibri" },
-          fill: { fgColor: { rgb: valueBg }, patternType: "solid" },
-          alignment: { horizontal: "left", vertical: "center" },
-          border: {
-            top: { style: "thin", color: { rgb: valueColor } },
-            bottom: { style: "thin", color: { rgb: valueColor } },
-            left: { style: "thin", color: { rgb: valueColor } },
-            right: { style: "thin", color: { rgb: valueColor } }
-          }
-        }
-      }
-      // Regular data cells
+      // Data row styling
       else {
         worksheet[cellAddress].s = {
           font: { sz: 10, name: "Calibri", color: { rgb: "2C3E50" } },
-          alignment: { horizontal: col === 0 ? "left" : "left", vertical: "center", wrapText: true },
+          alignment: { horizontal: "center", vertical: "center", wrapText: true },
           border: {
             top: { style: "thin", color: { rgb: "D5DBDB" } },
             bottom: { style: "thin", color: { rgb: "D5DBDB" } },
@@ -738,36 +629,44 @@ export const exportSingleWindingResistanceToExcel = (record: any) => {
           }
         }
         
-        // Alternating row colors
+        // Alternating row colors for better readability
         if (row % 2 === 0) {
-          worksheet[cellAddress].s.fill = { fgColor: { rgb: "FAFAFA" }, patternType: "solid" }
+          worksheet[cellAddress].s.fill = { fgColor: { rgb: "F8F9FA" }, patternType: "solid" }
         } else {
           worksheet[cellAddress].s.fill = { fgColor: { rgb: "FFFFFF" }, patternType: "solid" }
+        }
+        
+        // Status column conditional formatting
+        if (typeof cellValue === 'string' && cellValue.includes('Good')) {
+          worksheet[cellAddress].s.font = { bold: true, sz: 10, color: { rgb: "16A085" }, name: "Calibri" }
+          worksheet[cellAddress].s.fill = { fgColor: { rgb: "E8F6F3" }, patternType: "solid" }
+        } else if (typeof cellValue === 'string' && cellValue.includes('Acceptable')) {
+          worksheet[cellAddress].s.font = { bold: true, sz: 10, color: { rgb: "F39C12" }, name: "Calibri" }
+          worksheet[cellAddress].s.fill = { fgColor: { rgb: "FEF9E7" }, patternType: "solid" }
+        } else if (typeof cellValue === 'string' && cellValue.includes('Poor')) {
+          worksheet[cellAddress].s.font = { bold: true, sz: 10, color: { rgb: "E74C3C" }, name: "Calibri" }
+          worksheet[cellAddress].s.fill = { fgColor: { rgb: "FADBD8" }, patternType: "solid" }
         }
       }
     }
   }
   
-  // Enhanced row heights
+  // Set row heights for better appearance
   worksheet['!rows'] = []
-  worksheet['!rows'][0] = { hpt: 35 } // Main title
-  worksheet['!rows'][1] = { hpt: 25 } // Subtitle
-  worksheet['!rows'][2] = { hpt: 15 } // Divider
-  for (let i = 3; i < data.length; i++) {
-    if (data[i][0]?.includes('🏭') || data[i][0]?.includes('📋') || data[i][0]?.includes('⚡') || 
-        data[i][0]?.includes('🔬') || data[i][0]?.includes('📈') || data[i][0]?.includes('⚙️') || 
-        data[i][0]?.includes('🎯') || data[i][0]?.includes('💬') || data[i][0]?.includes('📅')) {
-      worksheet['!rows'][i] = { hpt: 25 } // Section headers
-    } else if (data[i][0]?.includes('━')) {
-      worksheet['!rows'][i] = { hpt: 10 } // Dividers
-    } else {
-      worksheet['!rows'][i] = { hpt: 20 } // Regular rows
-    }
+  worksheet['!rows'][0] = { hpt: 30 } // Header row height
+  worksheet['!rows'][1] = { hpt: 25 } // Data row height
+  
+  // Add table formatting
+  worksheet['!autofilter'] = { ref: `A1:AH2` }
+  
+  // Set margins
+  worksheet['!margins'] = {
+    left: 0.7, right: 0.7, top: 1.0, bottom: 1.0, header: 0.3, footer: 0.3
   }
+
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Winding Resistance Report')
   
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'IR DAR Test Report')
-  
-  const filename = `VALE-IR-DAR-Report-${safeGet(record, 'motorNo', 'unknown')}-${new Date().toISOString().split('T')[0]}.xlsx`
+  const filename = `VALE-Winding-Resistance-${safeGet(record, 'motorNo', 'unknown')}-${new Date().toISOString().split('T')[0]}.xlsx`
   XLSX.writeFile(workbook, filename)
 }
 

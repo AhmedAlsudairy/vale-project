@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { QRScanner } from "@/components/qr-scanner"
 import { generateQR } from "@/lib/qr-utils"
 import { exportWindingResistanceToExcel, exportSingleWindingResistanceToExcel } from "@/lib/excel-utils"
@@ -22,29 +23,80 @@ interface WindingResistanceRecord {
   id: number
   motorNo: string
   windingResistance: {
-    ry: number
-    yb: number
-    rb: number
+    values?: {
+      ry: number
+      yb: number
+      rb: number
+    }
+    units?: {
+      ry: string
+      yb: string
+      rb: string
+    }
+    // Legacy support
+    ry?: number
+    yb?: number
+    rb?: number
   }
   irValues: {
-    ug_1min: number
-    ug_10min: number
-    vg_1min: number
-    vg_10min: number
-    wg_1min: number
-    wg_10min: number
+    values?: {
+      ug_1min: number
+      ug_10min: number
+      vg_1min: number
+      vg_10min: number
+      wg_1min: number
+      wg_10min: number
+    }
+    units?: {
+      ug_1min: string
+      ug_10min: string
+      vg_1min: string
+      vg_10min: string
+      wg_1min: string
+      wg_10min: string
+    }
+    // Legacy support
+    ug_1min?: number
+    ug_10min?: number
+    vg_1min?: number
+    vg_10min?: number
+    wg_1min?: number
+    wg_10min?: number
   }
   polarizationIndex: number | null
   darValues: {
-    ug_30sec: number
-    ug_1min: number
-    vg_30sec: number
-    vg_1min: number
-    wg_30sec: number
-    wg_1min: number
+    values?: {
+      ug_30sec: number
+      ug_1min: number
+      vg_30sec: number
+      vg_1min: number
+      wg_30sec: number
+      wg_1min: number
+    }
+    units?: {
+      ug_30sec: string
+      ug_1min: string
+      vg_30sec: string
+      vg_1min: string
+      wg_30sec: string
+      wg_1min: string
+    }
+    results?: {
+      ug_result: number
+      vg_result: number
+      wg_result: number
+    }
+    // Legacy support
+    ug_30sec?: number
+    ug_1min?: number
+    vg_30sec?: number
+    vg_1min?: number
+    wg_30sec?: number
+    wg_1min?: number
   } | null
   inspectionDate: string
   doneBy: string | null
+  workHolder?: string | null
   remarks: string | null
   createdAt: string
 }
@@ -75,6 +127,7 @@ export default function WindingResistancePage() {
   const [dateFilter, setDateFilter] = useState<string>("all")
   const [filteredRecords, setFilteredRecords] = useState<WindingResistanceRecord[]>([])
   const [showFilters, setShowFilters] = useState(false)
+  const [activeTab, setActiveTab] = useState<"motor" | "transformer">("motor")
 
   const [formData, setFormData] = useState({
     motor_no: "",
@@ -82,46 +135,103 @@ export default function WindingResistancePage() {
     equipment_type: "Motor",
     inspection_date: new Date().toISOString().split("T")[0],
     done_by: "",
+    work_holder: "",
     winding_resistance: {
-      ry: 0,
-      yb: 0,
-      rb: 0,
+      ry: "",
+      yb: "",
+      rb: "",
+    },
+    winding_resistance_units: {
+      ry: "Ω",
+      yb: "Ω", 
+      rb: "Ω",
     },
     ir_values: {
-      ug_1min: 0,
-      ug_10min: 0,
-      vg_1min: 0,
-      vg_10min: 0,
-      wg_1min: 0,
-      wg_10min: 0,
+      ug_1min: "",
+      ug_10min: "",
+      vg_1min: "",
+      vg_10min: "",
+      wg_1min: "",
+      wg_10min: "",
+    },
+    ir_values_units: {
+      ug_1min: "GΩ",
+      ug_10min: "GΩ",
+      vg_1min: "GΩ",
+      vg_10min: "GΩ",
+      wg_1min: "GΩ",
+      wg_10min: "GΩ",
     },
     dar_values: {
-      ug_30sec: 0,
-      ug_1min: 0,
-      vg_30sec: 0,
-      vg_1min: 0,
-      wg_30sec: 0,
-      wg_1min: 0,
+      ug_30sec: "",
+      ug_1min: "",
+      vg_30sec: "",
+      vg_1min: "",
+      wg_30sec: "",
+      wg_1min: "",
+    },
+    dar_values_units: {
+      ug_30sec: "GΩ",
+      ug_1min: "GΩ",
+      vg_30sec: "GΩ",
+      vg_1min: "GΩ",
+      wg_30sec: "GΩ",
+      wg_1min: "GΩ",
     },
     // Primary Polarization Index (for all voltage types)
     primary_pi: {
-      ug_1min: 0,
-      ug_10min: 0,
-      vg_1min: 0,
-      vg_10min: 0,
-      wg_1min: 0,
-      wg_10min: 0,
-      pi_result: 0, // PI result (manual or calculated)
+      ug_1min: "",
+      ug_10min: "",
+      vg_1min: "",
+      vg_10min: "",
+      wg_1min: "",
+      wg_10min: "",
+      pi_result: "", // PI result (manual or calculated)
       pi_mode: "manual", // "manual" or "calculated"
     },
     dar_results: {
-      ug_result: 0, // Manual DAR result for U-G
-      vg_result: 0, // Manual DAR result for V-G  
-      wg_result: 0, // Manual DAR result for W-G
+      ug_result: "", // Manual DAR result for U-G
+      vg_result: "", // Manual DAR result for V-G  
+      wg_result: "", // Manual DAR result for W-G
     },
 
     remarks: "",
   })
+
+  // Check URL parameters for equipment type filter
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const equipmentType = urlParams.get('type')
+    
+    if (equipmentType === 'transformer') {
+      setActiveTab("transformer")
+      setFormData(prev => ({
+        ...prev,
+        equipment_type: "Transformer"
+      }))
+      // Show form by default when coming from transformer link
+      setShowForm(true)
+    }
+  }, [])
+
+  // Handle tab changes and update form data accordingly
+  const handleTabChange = (tab: string) => {
+    const validTab = tab as "motor" | "transformer"
+    setActiveTab(validTab)
+    setFormData(prev => ({
+      ...prev,
+      equipment_type: validTab === "transformer" ? "Transformer" : "Motor"
+    }))
+    
+    // Update URL without page reload
+    const url = new URL(window.location.href)
+    if (validTab === "transformer") {
+      url.searchParams.set('type', 'transformer')
+    } else {
+      url.searchParams.delete('type')
+    }
+    window.history.replaceState({}, '', url.toString())
+  }
 
   // Equipment types available
   const equipmentTypes = [
@@ -141,8 +251,8 @@ export default function WindingResistancePage() {
 
   // Helper function to calculate PI automatically
   const calculatePI = (phase: 'ug' | 'vg' | 'wg') => {
-    const min1 = formData.primary_pi[`${phase}_1min`]
-    const min10 = formData.primary_pi[`${phase}_10min`]
+    const min1 = parseFloat(formData.primary_pi[`${phase}_1min`]) || 0
+    const min10 = parseFloat(formData.primary_pi[`${phase}_10min`]) || 0
     if (min1 > 0 && min10 > 0) {
       return (min10 / min1).toFixed(2)
     }
@@ -161,11 +271,27 @@ export default function WindingResistancePage() {
     return "0.00"
   }
 
+  // Helper function to get IR values in a safe way (handles both legacy and new format)
+  const getIRValues = (irValues: WindingResistanceRecord['irValues']) => {
+    if (irValues.values) {
+      return irValues.values
+    }
+    // Legacy format
+    return {
+      ug_1min: irValues.ug_1min || 0,
+      ug_10min: irValues.ug_10min || 0,
+      vg_1min: irValues.vg_1min || 0,
+      vg_10min: irValues.vg_10min || 0,
+      wg_1min: irValues.wg_1min || 0,
+      wg_10min: irValues.wg_10min || 0,
+    }
+  }
+
   // Helper function to check if any important data is filled
   const hasSignificantData = () => {
-    return Object.values(formData.winding_resistance).some(value => value > 0) ||
-           Object.values(formData.ir_values).some(value => value > 0) ||
-           Object.values(formData.dar_values).some(value => value > 0)
+    return Object.values(formData.winding_resistance).some(value => value !== "" && parseFloat(value) > 0) ||
+           Object.values(formData.ir_values).some(value => value !== "" && parseFloat(value) > 0) ||
+           Object.values(formData.dar_values).some(value => value !== "" && parseFloat(value) > 0)
   }
 
   // Helper function to get voltage title based on equipment type
@@ -198,6 +324,15 @@ export default function WindingResistancePage() {
       return `DAR Values (primary ${voltage})`
     }
     return `DAR Values (${voltage})`
+  }
+
+  // Helper function to get PI title based on equipment type
+  const getPITitle = (equipmentType: string) => {
+    const voltage = getVoltageTitle(equipmentType)
+    if (equipmentType === "Transformer") {
+      return `Primary ${voltage} Polarization Index`
+    }
+    return `${voltage} Polarization Index`
   }
 
   // Reference values for guidance
@@ -242,6 +377,16 @@ export default function WindingResistancePage() {
   useEffect(() => {
     let filtered = records
 
+    // Equipment type filter based on active tab
+    filtered = filtered.filter(record => {
+      // For now, assume all existing records are motors unless explicitly marked as transformer
+      // In a real app, you'd have equipment type stored in the record
+      const equipmentType = record.motorNo?.toLowerCase().includes('transformer') || 
+                           record.motorNo?.toLowerCase().includes('xfmr') ||
+                           record.motorNo?.toLowerCase().includes('tr') ? 'transformer' : 'motor'
+      return equipmentType === activeTab
+    })
+
     // Search filter
     if (searchTerm) {
       filtered = filtered.filter(record =>
@@ -254,7 +399,8 @@ export default function WindingResistancePage() {
     // Status filter
     if (statusFilter !== "all") {
       filtered = filtered.filter(record => {
-        const avgIR = (record.irValues.ug_1min + record.irValues.vg_1min + record.irValues.wg_1min) / 3
+        const irVals = getIRValues(record.irValues)
+        const avgIR = (irVals.ug_1min + irVals.vg_1min + irVals.wg_1min) / 3
         const status = avgIR >= 10 ? "good" : avgIR >= 1 ? "acceptable" : "poor"
         return status === statusFilter
       })
@@ -282,7 +428,7 @@ export default function WindingResistancePage() {
     }
 
     setFilteredRecords(filtered)
-  }, [records, searchTerm, statusFilter, dateFilter])
+  }, [records, searchTerm, statusFilter, dateFilter, activeTab])
 
   const fetchRecords = async () => {
     try {
@@ -401,17 +547,17 @@ export default function WindingResistancePage() {
 
   const calculateLegacyPI = () => {
     const avgPI = [
-      formData.ir_values.ug_10min / formData.ir_values.ug_1min,
-      formData.ir_values.vg_10min / formData.ir_values.vg_1min,
-      formData.ir_values.wg_10min / formData.ir_values.wg_1min,
+      (parseFloat(formData.ir_values.ug_10min) || 0) / (parseFloat(formData.ir_values.ug_1min) || 1),
+      (parseFloat(formData.ir_values.vg_10min) || 0) / (parseFloat(formData.ir_values.vg_1min) || 1),
+      (parseFloat(formData.ir_values.wg_10min) || 0) / (parseFloat(formData.ir_values.wg_1min) || 1),
     ].filter((val) => !isNaN(val) && isFinite(val))
 
     return avgPI.length > 0 ? avgPI.reduce((a, b) => a + b) / avgPI.length : 0
   }
 
   const calculateDAR = (phase: "ug" | "vg" | "wg") => {
-    const oneMin = formData.dar_values[`${phase}_1min` as keyof typeof formData.dar_values]
-    const thirtySec = formData.dar_values[`${phase}_30sec` as keyof typeof formData.dar_values]
+    const oneMin = parseFloat(formData.dar_values[`${phase}_1min` as keyof typeof formData.dar_values]) || 0
+    const thirtySec = parseFloat(formData.dar_values[`${phase}_30sec` as keyof typeof formData.dar_values]) || 0
     return thirtySec > 0 ? oneMin / thirtySec : 0
   }
 
@@ -433,13 +579,13 @@ export default function WindingResistancePage() {
 
     // Check if at least some winding resistance values are filled
     const windingValues = Object.values(formData.winding_resistance)
-    if (windingValues.every((val) => val === 0)) {
+    if (windingValues.every((val) => val === "" || parseFloat(val) === 0)) {
       errors.push("At least one winding resistance value is required")
     }
 
     // Check if at least some IR values are filled
     const irValues = Object.values(formData.ir_values)
-    if (irValues.every((val) => val === 0)) {
+    if (irValues.every((val) => val === "" || parseFloat(val) === 0)) {
       errors.push("At least one IR value is required")
     }
 
@@ -466,11 +612,46 @@ export default function WindingResistancePage() {
         equipment_name: formData.equipment_name,
         inspection_date: formData.inspection_date,
         done_by: formData.done_by,
-        winding_resistance: formData.winding_resistance,
-        ir_values: formData.ir_values,
-        dar_values: formData.dar_values,
-        primary_pi: formData.primary_pi, // Include Primary PI data
-        dar_results: formData.dar_results, // Include manual DAR results
+        work_holder: formData.work_holder,
+        winding_resistance: {
+          ry: parseFloat(formData.winding_resistance.ry) || 0,
+          yb: parseFloat(formData.winding_resistance.yb) || 0,
+          rb: parseFloat(formData.winding_resistance.rb) || 0,
+        },
+        winding_resistance_units: formData.winding_resistance_units,
+        ir_values: {
+          ug_1min: parseFloat(formData.ir_values.ug_1min) || 0,
+          ug_10min: parseFloat(formData.ir_values.ug_10min) || 0,
+          vg_1min: parseFloat(formData.ir_values.vg_1min) || 0,
+          vg_10min: parseFloat(formData.ir_values.vg_10min) || 0,
+          wg_1min: parseFloat(formData.ir_values.wg_1min) || 0,
+          wg_10min: parseFloat(formData.ir_values.wg_10min) || 0,
+        },
+        ir_values_units: formData.ir_values_units,
+        dar_values: {
+          ug_30sec: parseFloat(formData.dar_values.ug_30sec) || 0,
+          ug_1min: parseFloat(formData.dar_values.ug_1min) || 0,
+          vg_30sec: parseFloat(formData.dar_values.vg_30sec) || 0,
+          vg_1min: parseFloat(formData.dar_values.vg_1min) || 0,
+          wg_30sec: parseFloat(formData.dar_values.wg_30sec) || 0,
+          wg_1min: parseFloat(formData.dar_values.wg_1min) || 0,
+        },
+        dar_values_units: formData.dar_values_units,
+        primary_pi: {
+          ...formData.primary_pi,
+          ug_1min: parseFloat(formData.primary_pi.ug_1min) || 0,
+          ug_10min: parseFloat(formData.primary_pi.ug_10min) || 0,
+          vg_1min: parseFloat(formData.primary_pi.vg_1min) || 0,
+          vg_10min: parseFloat(formData.primary_pi.vg_10min) || 0,
+          wg_1min: parseFloat(formData.primary_pi.wg_1min) || 0,
+          wg_10min: parseFloat(formData.primary_pi.wg_10min) || 0,
+          pi_result: parseFloat(formData.primary_pi.pi_result) || 0,
+        }, // Include Primary PI data
+        dar_results: {
+          ug_result: parseFloat(formData.dar_results.ug_result) || 0,
+          vg_result: parseFloat(formData.dar_results.vg_result) || 0,
+          wg_result: parseFloat(formData.dar_results.wg_result) || 0,
+        }, // Include manual DAR results
         remarks: formData.remarks,
       }
 
@@ -512,37 +693,55 @@ export default function WindingResistancePage() {
           equipment_type: "Motor",
           inspection_date: new Date().toISOString().split("T")[0],
           done_by: "",
-          winding_resistance: { ry: 0, yb: 0, rb: 0 },
+          work_holder: "",
+          winding_resistance: { ry: "", yb: "", rb: "" },
+          winding_resistance_units: { ry: "Ω", yb: "Ω", rb: "Ω" },
           ir_values: {
-            ug_1min: 0,
-            ug_10min: 0,
-            vg_1min: 0,
-            vg_10min: 0,
-            wg_1min: 0,
-            wg_10min: 0,
+            ug_1min: "",
+            ug_10min: "",
+            vg_1min: "",
+            vg_10min: "",
+            wg_1min: "",
+            wg_10min: "",
+          },
+          ir_values_units: {
+            ug_1min: "GΩ",
+            ug_10min: "GΩ",
+            vg_1min: "GΩ",
+            vg_10min: "GΩ",
+            wg_1min: "GΩ",
+            wg_10min: "GΩ",
           },
           dar_values: {
-            ug_30sec: 0,
-            ug_1min: 0,
-            vg_30sec: 0,
-            vg_1min: 0,
-            wg_30sec: 0,
-            wg_1min: 0,
+            ug_30sec: "",
+            ug_1min: "",
+            vg_30sec: "",
+            vg_1min: "",
+            wg_30sec: "",
+            wg_1min: "",
+          },
+          dar_values_units: {
+            ug_30sec: "GΩ",
+            ug_1min: "GΩ",
+            vg_30sec: "GΩ",
+            vg_1min: "GΩ",
+            wg_30sec: "GΩ",
+            wg_1min: "GΩ",
           },
           primary_pi: {
-            ug_1min: 0,
-            ug_10min: 0,
-            vg_1min: 0,
-            vg_10min: 0,
-            wg_1min: 0,
-            wg_10min: 0,
-            pi_result: 0,
+            ug_1min: "",
+            ug_10min: "",
+            vg_1min: "",
+            vg_10min: "",
+            wg_1min: "",
+            wg_10min: "",
+            pi_result: "",
             pi_mode: "manual",
           },
           dar_results: {
-            ug_result: 0,
-            vg_result: 0,
-            wg_result: 0,
+            ug_result: "",
+            vg_result: "",
+            wg_result: "",
           },
           remarks: "",
         })
@@ -687,9 +886,11 @@ export default function WindingResistancePage() {
         {/* Header Section - Responsive */}
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div className="space-y-1">
-            <h1 className="text-2xl sm:text-3xl font-bold">Winding Resistance Management</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">
+              Winding Resistance Management
+            </h1>
             <p className="text-sm sm:text-base text-muted-foreground">
-              Track motor winding resistance, IR values, and insulation health
+              Track equipment winding resistance, IR values, and insulation health
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
@@ -712,6 +913,22 @@ export default function WindingResistancePage() {
               )}
             </Button>
           </div>
+        </div>
+
+        {/* Equipment Type Tabs */}
+        <div className="flex justify-center">
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full max-w-md">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="motor" className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                Motor Testing
+              </TabsTrigger>
+              <TabsTrigger value="transformer" className="flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                Transformer Testing
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         {/* Error Alert - Improved UX */}
@@ -829,9 +1046,11 @@ export default function WindingResistancePage() {
             <CardHeader className="pb-4 sm:pb-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-lg sm:text-xl">Winding Resistance Test Form</CardTitle>
+                  <CardTitle className="text-lg sm:text-xl">
+                    {formData.equipment_type === "Transformer" ? "Transformer" : "Motor"} Winding Resistance Test Form
+                  </CardTitle>
                   <CardDescription className="text-sm sm:text-base">
-                    Record motor winding resistance, IR values, and insulation test data
+                    Record {formData.equipment_type === "Transformer" ? "transformer" : "motor"} winding resistance, IR values, and insulation test data
                   </CardDescription>
                 </div>
                 {error && (
@@ -847,7 +1066,7 @@ export default function WindingResistancePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="motor_no" className="text-sm font-medium">
-                      Motor No
+                      {formData.equipment_type === "Transformer" ? "Transformer No" : "Motor No"}
                     </Label>
                     <Combobox
                       options={equipment.map((eq) => ({
@@ -856,15 +1075,15 @@ export default function WindingResistancePage() {
                       }))}
                       value={formData.motor_no}
                       onValueChange={handleMotorNoChange}
-                      placeholder="Select or add Motor No (e.g., BO.3161.04.M1)"
-                      searchPlaceholder="Search Motor No..."
+                      placeholder={`Select or add ${formData.equipment_type === "Transformer" ? "Transformer" : "Motor"} No (e.g., BO.3161.04.M1)`}
+                      searchPlaceholder={`Search ${formData.equipment_type === "Transformer" ? "Transformer" : "Motor"} No...`}
                       allowCustom={true}
                       onAddNew={(newMotorNo) => {
                         const newEquipment = {
                           id: Date.now(),
                           tagNo: newMotorNo,
-                          equipmentName: `New Motor - ${newMotorNo}`,
-                          equipmentType: "Motor",
+                          equipmentName: `New ${formData.equipment_type} - ${newMotorNo}`,
+                          equipmentType: formData.equipment_type,
                           location: null,
                         }
                         setEquipment((prev) => [...prev, newEquipment])
@@ -943,9 +1162,23 @@ export default function WindingResistancePage() {
                       className="w-full"
                     />
                   </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="work_holder" className="text-sm font-medium flex items-center gap-1">
+                      <Settings className="w-3 h-3" />
+                      Work Holder
+                    </Label>
+                    <Input
+                      id="work_holder"
+                      value={formData.work_holder}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, work_holder: e.target.value }))}
+                      placeholder="Work Holder Name"
+                      className="w-full"
+                    />
+                  </div>
                 </div>
 
-                {/* Winding Resistance - Responsive Grid */}
+                {/* Winding Resistance - Responsive Grid with Units */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
@@ -962,30 +1195,55 @@ export default function WindingResistancePage() {
                         <Label htmlFor={key} className="text-sm font-medium">
                           {key.toUpperCase().replace("", "-")} Phase
                         </Label>
-                        <Input
-                          id={key}
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={value}
-                          onChange={(e) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              winding_resistance: {
-                                ...prev.winding_resistance,
-                                [key]: Number.parseFloat(e.target.value) || 0,
-                              },
-                            }))
-                          }
-                          placeholder="Ω"
-                          className="w-full"
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            id={key}
+                            type="number"
+                            step="0.001"
+                            min="0"
+                            value={value}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                winding_resistance: {
+                                  ...prev.winding_resistance,
+                                  [key]: e.target.value,
+                                },
+                              }))
+                            }
+                            placeholder="Enter value"
+                            className="flex-1"
+                          />
+                          <Select
+                            value={formData.winding_resistance_units[key as keyof typeof formData.winding_resistance_units]}
+                            onValueChange={(unit) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                winding_resistance_units: {
+                                  ...prev.winding_resistance_units,
+                                  [key]: unit,
+                                },
+                              }))
+                            }
+                          >
+                            <SelectTrigger className="w-20">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="GΩ">GΩ</SelectItem>
+                              <SelectItem value="MΩ">MΩ</SelectItem>
+                              <SelectItem value="kΩ">kΩ</SelectItem>
+                              <SelectItem value="Ω">Ω</SelectItem>
+                              <SelectItem value="mΩ">mΩ</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* IR Values - Responsive Grid */}
+                {/* IR Values - Responsive Grid with Units */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
@@ -1007,47 +1265,97 @@ export default function WindingResistancePage() {
                             <Label htmlFor={key1} className="text-xs">
                               1 Minute
                             </Label>
-                            <Input
-                              id={key1}
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={formData.ir_values[key1 as keyof typeof formData.ir_values]}
-                              onChange={(e) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  ir_values: {
-                                    ...prev.ir_values,
-                                    [key1]: Number.parseFloat(e.target.value) || 0,
-                                  },
-                                }))
-                              }
-                              placeholder="GΩ"
-                              className="w-full text-sm"
-                            />
+                            <div className="flex gap-2">
+                              <Input
+                                id={key1}
+                                type="number"
+                                step="0.001"
+                                min="0"
+                                value={formData.ir_values[key1 as keyof typeof formData.ir_values]}
+                                onChange={(e) =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    ir_values: {
+                                      ...prev.ir_values,
+                                      [key1]: e.target.value,
+                                    },
+                                  }))
+                                }
+                                placeholder="Enter value"
+                                className="flex-1 text-sm"
+                              />
+                              <Select
+                                value={formData.ir_values_units[key1 as keyof typeof formData.ir_values_units]}
+                                onValueChange={(unit) =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    ir_values_units: {
+                                      ...prev.ir_values_units,
+                                      [key1]: unit,
+                                    },
+                                  }))
+                                }
+                              >
+                                <SelectTrigger className="w-16 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="GΩ">GΩ</SelectItem>
+                                  <SelectItem value="MΩ">MΩ</SelectItem>
+                                  <SelectItem value="kΩ">kΩ</SelectItem>
+                                  <SelectItem value="Ω">Ω</SelectItem>
+                                  <SelectItem value="mΩ">mΩ</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
                           <div>
                             <Label htmlFor={key10} className="text-xs">
                               10 Minutes
                             </Label>
-                            <Input
-                              id={key10}
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={formData.ir_values[key10 as keyof typeof formData.ir_values]}
-                              onChange={(e) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  ir_values: {
-                                    ...prev.ir_values,
-                                    [key10]: Number.parseFloat(e.target.value) || 0,
-                                  },
-                                }))
-                              }
-                              placeholder="GΩ"
-                              className="w-full text-sm"
-                            />
+                            <div className="flex gap-2">
+                              <Input
+                                id={key10}
+                                type="number"
+                                step="0.001"
+                                min="0"
+                                value={formData.ir_values[key10 as keyof typeof formData.ir_values]}
+                                onChange={(e) =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    ir_values: {
+                                      ...prev.ir_values,
+                                      [key10]: e.target.value,
+                                    },
+                                  }))
+                                }
+                                placeholder="Enter value"
+                                className="flex-1 text-sm"
+                              />
+                              <Select
+                                value={formData.ir_values_units[key10 as keyof typeof formData.ir_values_units]}
+                                onValueChange={(unit) =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    ir_values_units: {
+                                      ...prev.ir_values_units,
+                                      [key10]: unit,
+                                    },
+                                  }))
+                                }
+                              >
+                                <SelectTrigger className="w-16 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="GΩ">GΩ</SelectItem>
+                                  <SelectItem value="MΩ">MΩ</SelectItem>
+                                  <SelectItem value="kΩ">kΩ</SelectItem>
+                                  <SelectItem value="Ω">Ω</SelectItem>
+                                  <SelectItem value="mΩ">mΩ</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1055,7 +1363,7 @@ export default function WindingResistancePage() {
                   </div>
                 </div>
 
-                {/* DAR Values - Responsive Grid */}
+                {/* DAR Values - Responsive Grid with Units */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-base sm:text-lg font-semibold">{getDARTitle(formData.equipment_type)}</h3>
@@ -1085,47 +1393,97 @@ export default function WindingResistancePage() {
                               <Label htmlFor={key30} className="text-xs">
                                 30 Seconds
                               </Label>
-                              <Input
-                                id={key30}
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={formData.dar_values[key30 as keyof typeof formData.dar_values]}
-                                onChange={(e) =>
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    dar_values: {
-                                      ...prev.dar_values,
-                                      [key30]: Number.parseFloat(e.target.value) || 0,
-                                    },
-                                  }))
-                                }
-                                placeholder="GΩ"
-                                className="w-full text-sm"
-                              />
+                              <div className="flex gap-2">
+                                <Input
+                                  id={key30}
+                                  type="number"
+                                  step="0.001"
+                                  min="0"
+                                  value={formData.dar_values[key30 as keyof typeof formData.dar_values]}
+                                  onChange={(e) =>
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      dar_values: {
+                                        ...prev.dar_values,
+                                        [key30]: e.target.value,
+                                      },
+                                    }))
+                                  }
+                                  placeholder="Enter value"
+                                  className="flex-1 text-sm"
+                                />
+                                <Select
+                                  value={formData.dar_values_units[key30 as keyof typeof formData.dar_values_units]}
+                                  onValueChange={(unit) =>
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      dar_values_units: {
+                                        ...prev.dar_values_units,
+                                        [key30]: unit,
+                                      },
+                                    }))
+                                  }
+                                >
+                                  <SelectTrigger className="w-16 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="GΩ">GΩ</SelectItem>
+                                    <SelectItem value="MΩ">MΩ</SelectItem>
+                                    <SelectItem value="kΩ">kΩ</SelectItem>
+                                    <SelectItem value="Ω">Ω</SelectItem>
+                                    <SelectItem value="mΩ">mΩ</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
                             <div>
                               <Label htmlFor={key1} className="text-xs">
                                 1 Minute
                               </Label>
-                              <Input
-                                id={key1}
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={formData.dar_values[key1 as keyof typeof formData.dar_values]}
-                                onChange={(e) =>
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    dar_values: {
-                                      ...prev.dar_values,
-                                      [key1]: Number.parseFloat(e.target.value) || 0,
-                                    },
-                                  }))
-                                }
-                                placeholder="GΩ"
-                                className="w-full text-sm"
-                              />
+                              <div className="flex gap-2">
+                                <Input
+                                  id={key1}
+                                  type="number"
+                                  step="0.001"
+                                  min="0"
+                                  value={formData.dar_values[key1 as keyof typeof formData.dar_values]}
+                                  onChange={(e) =>
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      dar_values: {
+                                        ...prev.dar_values,
+                                        [key1]: e.target.value,
+                                      },
+                                    }))
+                                  }
+                                  placeholder="Enter value"
+                                  className="flex-1 text-sm"
+                                />
+                                <Select
+                                  value={formData.dar_values_units[key1 as keyof typeof formData.dar_values_units]}
+                                  onValueChange={(unit) =>
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      dar_values_units: {
+                                        ...prev.dar_values_units,
+                                        [key1]: unit,
+                                      },
+                                    }))
+                                  }
+                                >
+                                  <SelectTrigger className="w-16 text-xs">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="GΩ">GΩ</SelectItem>
+                                    <SelectItem value="MΩ">MΩ</SelectItem>
+                                    <SelectItem value="kΩ">kΩ</SelectItem>
+                                    <SelectItem value="Ω">Ω</SelectItem>
+                                    <SelectItem value="mΩ">mΩ</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
                             <div>
                               <Label htmlFor={`dar_${resultKey}`} className="text-xs">
@@ -1141,10 +1499,10 @@ export default function WindingResistancePage() {
                                   ...prev, 
                                   dar_results: {
                                     ...prev.dar_results,
-                                    [resultKey]: parseFloat(e.target.value) || 0
+                                    [resultKey]: e.target.value
                                   }
                                 }))}
-                                placeholder="DAR"
+                                placeholder="Enter DAR value"
                                 className="w-full text-sm"
                               />
                             </div>
@@ -1159,7 +1517,7 @@ export default function WindingResistancePage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-base sm:text-lg font-semibold">
-                      Primary {getVoltageTitle(formData.equipment_type)} Polarization Index
+                      {getPITitle(formData.equipment_type)}
                     </h3>
                     
                     {/* PI Mode Selection */}
@@ -1207,9 +1565,10 @@ export default function WindingResistancePage() {
                                 ...prev, 
                                 primary_pi: {
                                   ...prev.primary_pi,
-                                  ug_1min: parseFloat(e.target.value) || 0
+                                  ug_1min: e.target.value
                                 }
                               }))}
+                              placeholder="Enter value"
                               className="text-center text-sm"
                             />
                           </TableCell>
@@ -1223,9 +1582,10 @@ export default function WindingResistancePage() {
                                 ...prev, 
                                 primary_pi: {
                                   ...prev.primary_pi,
-                                  vg_1min: parseFloat(e.target.value) || 0
+                                  vg_1min: e.target.value
                                 }
                               }))}
+                              placeholder="Enter value"
                               className="text-center text-sm"
                             />
                           </TableCell>
@@ -1239,9 +1599,10 @@ export default function WindingResistancePage() {
                                 ...prev, 
                                 primary_pi: {
                                   ...prev.primary_pi,
-                                  wg_1min: parseFloat(e.target.value) || 0
+                                  wg_1min: e.target.value
                                 }
                               }))}
+                              placeholder="Enter value"
                               className="text-center text-sm"
                             />
                           </TableCell>
@@ -1258,9 +1619,10 @@ export default function WindingResistancePage() {
                                 ...prev, 
                                 primary_pi: {
                                   ...prev.primary_pi,
-                                  ug_10min: parseFloat(e.target.value) || 0
+                                  ug_10min: e.target.value
                                 }
                               }))}
+                              placeholder="Enter value"
                               className="text-center text-sm"
                             />
                           </TableCell>
@@ -1274,9 +1636,10 @@ export default function WindingResistancePage() {
                                 ...prev, 
                                 primary_pi: {
                                   ...prev.primary_pi,
-                                  vg_10min: parseFloat(e.target.value) || 0
+                                  vg_10min: e.target.value
                                 }
                               }))}
+                              placeholder="Enter value"
                               className="text-center text-sm"
                             />
                           </TableCell>
@@ -1290,9 +1653,10 @@ export default function WindingResistancePage() {
                                 ...prev, 
                                 primary_pi: {
                                   ...prev.primary_pi,
-                                  wg_10min: parseFloat(e.target.value) || 0
+                                  wg_10min: e.target.value
                                 }
                               }))}
+                              placeholder="Enter value"
                               className="text-center text-sm"
                             />
                           </TableCell>
@@ -1319,7 +1683,7 @@ export default function WindingResistancePage() {
                                   ...prev, 
                                   primary_pi: {
                                     ...prev.primary_pi,
-                                    pi_result: parseFloat(e.target.value) || 0
+                                    pi_result: e.target.value
                                   }
                                 }))}
                                 className="text-center text-sm font-medium"
@@ -1495,7 +1859,8 @@ export default function WindingResistancePage() {
                     </div>
                   ) : (
                     filteredRecords.map((record) => {
-                      const avgIR = (record.irValues.ug_1min + record.irValues.vg_1min + record.irValues.wg_1min) / 3
+                      const irVals = getIRValues(record.irValues)
+                      const avgIR = (irVals.ug_1min + irVals.vg_1min + irVals.wg_1min) / 3
                       const piStatus = getPIStatus(record.polarizationIndex || 0)
 
                       return (
@@ -1583,8 +1948,8 @@ export default function WindingResistancePage() {
                         </TableRow>
                       ) : (
                         filteredRecords.map((record) => {
-                          const avgIR =
-                            (record.irValues.ug_1min + record.irValues.vg_1min + record.irValues.wg_1min) / 3
+                          const irVals = getIRValues(record.irValues)
+                          const avgIR = (irVals.ug_1min + irVals.vg_1min + irVals.wg_1min) / 3
                           const piStatus = getPIStatus(record.polarizationIndex || 0)
 
                           return (

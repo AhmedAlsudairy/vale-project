@@ -92,9 +92,13 @@ export async function POST(request: NextRequest) {
       equipment_name,
       inspection_date,
       done_by,
+      work_holder,
       winding_resistance,
+      winding_resistance_units,
       ir_values,
+      ir_values_units,
       dar_values,
+      dar_values_units,
       primary_pi, // New field for Primary PI data (all voltage types)
       dar_results, // New field for manual DAR results
       remarks,
@@ -137,10 +141,18 @@ export async function POST(request: NextRequest) {
         motorNo: motor_no,
         inspectionDate: new Date(inspection_date),
         doneBy: done_by || null,
-        windingResistance: winding_resistance,
-        irValues: ir_values,
+        workHolder: work_holder || null,
+        windingResistance: {
+          values: winding_resistance,
+          units: winding_resistance_units || { ry: "Ω", yb: "Ω", rb: "Ω" }
+        },
+        irValues: {
+          values: ir_values,
+          units: ir_values_units || { ug_1min: "GΩ", ug_10min: "GΩ", vg_1min: "GΩ", vg_10min: "GΩ", wg_1min: "GΩ", wg_10min: "GΩ" }
+        },
         darValues: {
-          ...dar_values, // Raw measurements (30sec, 1min values)
+          values: dar_values, // Raw measurements (30sec, 1min values)
+          units: dar_values_units || { ug_30sec: "GΩ", ug_1min: "GΩ", vg_30sec: "GΩ", vg_1min: "GΩ", wg_30sec: "GΩ", wg_1min: "GΩ" },
           results: dar_results || null // Manual DAR calculation results
         },
         primary5kVPI: primary_pi || null, // Primary PI data (all voltage types)
@@ -163,9 +175,20 @@ export async function POST(request: NextRequest) {
         motorNo: body.motor_no,
         inspectionDate: body.inspection_date,
         doneBy: body.done_by,
-        windingResistance: body.winding_resistance,
-        irValues: body.ir_values,
-        darValues: body.dar_values,
+        workHolder: body.work_holder,
+        windingResistance: {
+          values: body.winding_resistance,
+          units: body.winding_resistance_units
+        },
+        irValues: {
+          values: body.ir_values,
+          units: body.ir_values_units
+        },
+        darValues: {
+          values: body.dar_values,
+          units: body.dar_values_units,
+          results: body.dar_results
+        },
         primaryPI: body.primary_pi,
         polarizationIndex: body.primary_pi?.pi_result,
         remarks: body.remarks,
