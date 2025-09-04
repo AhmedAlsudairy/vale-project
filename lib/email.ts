@@ -68,59 +68,96 @@ const createDetailedExcelReport = (record: any, type: 'winding' | 'carbon' | 'th
 const createWindingResistanceExcelBuffer = (record: any): Buffer => {
   const workbook = XLSX.utils.book_new()
   
+  console.log('🔍 Debug - Full record structure:', JSON.stringify(record, null, 2))
+  
   // Get data safely (handles both legacy and new format)
   const primaryPI = record.primary5kVPI || record.primaryPI || {}
   const irVals = record.irValues?.values || record.irValues || {}
   const windingVals = record.windingResistance?.values || record.windingResistance || {}
   const windingUnits = record.windingResistance?.units || { ry: 'Ω', yb: 'Ω', rb: 'Ω' }
   const darVals = record.darValues?.values || record.darValues || {}
+  const darResults = record.darValues?.results || {}
   
-  console.log('Debug - Creating winding Excel with data:', {
+  console.log('📊 Debug - Extracted values:', {
     motorNo: record.motorNo,
     windingVals,
     irVals,
     darVals,
+    darResults,
     windingUnits,
-    fullRecord: JSON.stringify(record, null, 2)
+    primaryPI,
+    equipment: record.equipment
   })
   
-  // Create data array in standard Excel table format
+  // Create comprehensive data array with all measurements
   const data = [
-    // Header Row
+    // Header Row - Include ALL measurement fields
     [
       'Motor No', 'Equipment Name', 'Equipment Type', 'Inspection Date', 'Done By', 'Work Holder',
-      'Winding Resistance R-Y (Ω)', 'Winding Resistance Y-B (Ω)', 'Winding Resistance R-B (Ω)',
-      'IR UG 1min (GΩ)', 'IR UG 10min (GΩ)', 'IR VG 1min (GΩ)', 'IR VG 10min (GΩ)', 'IR WG 1min (GΩ)', 'IR WG 10min (GΩ)',
-      'PI Result', 'DAR UG Result', 'DAR VG Result', 'DAR WG Result', 'Status', 'Remarks'
+      
+      // Winding Resistance
+      'R-Y Resistance (Ω)', 'Y-B Resistance (Ω)', 'R-B Resistance (Ω)',
+      
+      // IR Values - 1 minute
+      'IR UG 1min (GΩ)', 'IR VG 1min (GΩ)', 'IR WG 1min (GΩ)',
+      
+      // IR Values - 10 minute  
+      'IR UG 10min (GΩ)', 'IR VG 10min (GΩ)', 'IR WG 10min (GΩ)',
+      
+      // DAR Values - 30 second
+      'DAR UG 30sec (GΩ)', 'DAR VG 30sec (GΩ)', 'DAR WG 30sec (GΩ)',
+      
+      // DAR Values - 1 minute
+      'DAR UG 1min (GΩ)', 'DAR VG 1min (GΩ)', 'DAR WG 1min (GΩ)',
+      
+      // Calculated Results
+      'PI Result', 'DAR UG Ratio', 'DAR VG Ratio', 'DAR WG Ratio',
+      
+      // Additional Info
+      'Overall Status', 'Remarks'
     ],
     
-    // Data Row
+    // Data Row - Include ALL actual values
     [
       record.motorNo || '',
-      record.equipment?.equipmentName || '',
+      record.equipment?.equipmentName || record.equipmentName || '',
       record.equipment?.equipmentType || 'Motor',
-      new Date(record.inspectionDate).toLocaleDateString(),
+      record.inspectionDate ? new Date(record.inspectionDate).toLocaleDateString() : '',
       record.doneBy || '',
       record.workHolder || '',
       
       // Winding Resistance values
-      `${windingVals.ry || 0} ${windingUnits.ry || 'Ω'}`,
-      `${windingVals.yb || 0} ${windingUnits.yb || 'Ω'}`,
-      `${windingVals.rb || 0} ${windingUnits.rb || 'Ω'}`,
+      Number(windingVals.ry || 0),
+      Number(windingVals.yb || 0), 
+      Number(windingVals.rb || 0),
       
-      // IR values
-      `${irVals.ug_1min || 0} GΩ`,
-      `${irVals.ug_10min || 0} GΩ`,
-      `${irVals.vg_1min || 0} GΩ`,
-      `${irVals.vg_10min || 0} GΩ`,
-      `${irVals.wg_1min || 0} GΩ`,
-      `${irVals.wg_10min || 0} GΩ`,
+      // IR values - 1 minute
+      Number(irVals.ug_1min || 0),
+      Number(irVals.vg_1min || 0),
+      Number(irVals.wg_1min || 0),
       
-      // PI and DAR Results
-      record.polarizationIndex || primaryPI.pi_result || '',
-      darVals.ug_dar || (darVals.ug_1min && darVals.ug_30sec ? (darVals.ug_1min / darVals.ug_30sec).toFixed(2) : ''),
-      darVals.vg_dar || (darVals.vg_1min && darVals.vg_30sec ? (darVals.vg_1min / darVals.vg_30sec).toFixed(2) : ''),
-      darVals.wg_dar || (darVals.wg_1min && darVals.wg_30sec ? (darVals.wg_1min / darVals.wg_30sec).toFixed(2) : ''),
+      // IR values - 10 minute
+      Number(irVals.ug_10min || 0),
+      Number(irVals.vg_10min || 0),
+      Number(irVals.wg_10min || 0),
+      
+      // DAR values - 30 second
+      Number(darVals.ug_30sec || 0),
+      Number(darVals.vg_30sec || 0),
+      Number(darVals.wg_30sec || 0),
+      
+      // DAR values - 1 minute
+      Number(darVals.ug_1min || 0),
+      Number(darVals.vg_1min || 0),
+      Number(darVals.wg_1min || 0),
+      
+      // Calculated results
+      Number(record.polarizationIndex || primaryPI.pi_result || 0),
+      Number(darResults.ug_dar || (darVals.ug_1min && darVals.ug_30sec ? (darVals.ug_1min / darVals.ug_30sec) : 0)),
+      Number(darResults.vg_dar || (darVals.vg_1min && darVals.vg_30sec ? (darVals.vg_1min / darVals.vg_30sec) : 0)),
+      Number(darResults.wg_dar || (darVals.wg_1min && darVals.wg_30sec ? (darVals.wg_1min / darVals.wg_30sec) : 0)),
+      
+      // Status and remarks
       'Good',
       record.remarks || ''
     ]
@@ -266,80 +303,116 @@ const createFallbackExcelReport = (record: any, type: string): Buffer => {
 
 // Email templates
 export const emailTemplates = {
-  windingResistance: (data: any) => ({
-    subject: `New Winding Resistance Test - ${data.motorNo}`,
-    html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #1F4E79;">New Winding Resistance Test Submitted</h2>
-        
-        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h3 style="color: #2C3E50; margin-top: 0;">Equipment Information</h3>
-          <p><strong>Motor No:</strong> ${data.motorNo}</p>
-          <p><strong>Equipment Name:</strong> ${data.equipment_name}</p>
-          <p><strong>Equipment Type:</strong> ${data.equipment_type}</p>
-          <p><strong>Test Date:</strong> ${data.inspection_date}</p>
-          <p><strong>Done By:</strong> ${data.done_by}</p>
-          <p><strong>Work Holder:</strong> ${data.work_holder || 'Not specified'}</p>
-        </div>
-
-        <div style="background: #e8f6f3; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h3 style="color: #16A085; margin-top: 0;">Test Results Summary</h3>
-          <p><strong>Winding Resistance:</strong></p>
-          <ul>
-            <li>R-Y: ${data.winding_resistance?.ry || 0} Ω</li>
-            <li>Y-B: ${data.winding_resistance?.yb || 0} Ω</li>
-            <li>R-B: ${data.winding_resistance?.rb || 0} Ω</li>
-          </ul>
+  windingResistance: (data: any) => {
+    // Extract values safely from the database record structure
+    const windingValues = data.windingResistance?.values || {}
+    const irValues = data.irValues?.values || {}
+    const darValues = data.darValues?.values || {}
+    const primaryPI = data.primary5kVPI || {}
+    
+    return {
+      subject: `New Winding Resistance Test - ${data.motorNo}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #1F4E79;">New Winding Resistance Test Submitted</h2>
           
-          <p><strong>IR Values (1 min):</strong></p>
-          <ul>
-            <li>U-G: ${data.ir_values?.ug_1min || 0} GΩ</li>
-            <li>V-G: ${data.ir_values?.vg_1min || 0} GΩ</li>
-            <li>W-G: ${data.ir_values?.wg_1min || 0} GΩ</li>
-          </ul>
-          
-          <p><strong>PI Result:</strong> ${data.primary_pi?.pi_result || 'Not specified'}</p>
-        </div>
+          <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #2C3E50; margin-top: 0;">Equipment Information</h3>
+            <p><strong>Motor No:</strong> ${data.motorNo}</p>
+            <p><strong>Equipment Name:</strong> ${data.equipment?.equipmentName || 'N/A'}</p>
+            <p><strong>Equipment Type:</strong> ${data.equipment?.equipmentType || 'Motor'}</p>
+            <p><strong>Test Date:</strong> ${data.inspectionDate ? new Date(data.inspectionDate).toLocaleDateString() : 'N/A'}</p>
+            <p><strong>Done By:</strong> ${data.doneBy || 'N/A'}</p>
+            <p><strong>Work Holder:</strong> ${data.workHolder || 'Not specified'}</p>
+          </div>
 
-        ${data.remarks ? `
-        <div style="background: #fef9e7; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <h3 style="color: #F39C12; margin-top: 0;">Remarks</h3>
-          <p>${data.remarks}</p>
-        </div>
-        ` : ''}
+          <div style="background: #e8f6f3; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #16A085; margin-top: 0;">Test Results Summary</h3>
+            <p><strong>Winding Resistance:</strong></p>
+            <ul>
+              <li>R-Y: ${windingValues.ry || 0} Ω</li>
+              <li>Y-B: ${windingValues.yb || 0} Ω</li>
+              <li>R-B: ${windingValues.rb || 0} Ω</li>
+            </ul>
+            
+            <p><strong>IR Values (1 min):</strong></p>
+            <ul>
+              <li>U-G: ${irValues.ug_1min || 0} GΩ</li>
+              <li>V-G: ${irValues.vg_1min || 0} GΩ</li>
+              <li>W-G: ${irValues.wg_1min || 0} GΩ</li>
+            </ul>
+            
+            <p><strong>IR Values (10 min):</strong></p>
+            <ul>
+              <li>U-G: ${irValues.ug_10min || 0} GΩ</li>
+              <li>V-G: ${irValues.vg_10min || 0} GΩ</li>
+              <li>W-G: ${irValues.wg_10min || 0} GΩ</li>
+            </ul>
+            
+            <p><strong>DAR Values:</strong></p>
+            <ul>
+              <li>U-G 30sec: ${darValues.ug_30sec || 0} GΩ</li>
+              <li>V-G 30sec: ${darValues.vg_30sec || 0} GΩ</li>
+              <li>W-G 30sec: ${darValues.wg_30sec || 0} GΩ</li>
+            </ul>
+            
+            <p><strong>PI Result:</strong> ${data.polarizationIndex || primaryPI.pi_result || 'Not calculated'}</p>
+          </div>
 
-        <div style="background: #f4f4f4; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
-          <p style="margin: 0; color: #666;">
-            This email was automatically generated by Vale Equipment Management System
-          </p>
+          ${data.remarks ? `
+          <div style="background: #fef9e7; padding: 20px; border-radius: 8px; margin: 20px 0;">
+            <h3 style="color: #F39C12; margin-top: 0;">Remarks</h3>
+            <p>${data.remarks}</p>
+          </div>
+          ` : ''}
+
+          <div style="background: #f4f4f4; padding: 15px; border-radius: 8px; margin: 20px 0; text-align: center;">
+            <p style="margin: 0; color: #666;">
+              This email was automatically generated by Vale Equipment Management System
+            </p>
+          </div>
         </div>
-      </div>
-    `,
-    text: `
+      `,
+      text: `
 New Winding Resistance Test Submitted
 
 Equipment Information:
 - Motor No: ${data.motorNo}
-- Equipment Name: ${data.equipment_name}
-- Equipment Type: ${data.equipment_type}
-- Test Date: ${data.inspection_date}
-- Done By: ${data.done_by}
-- Work Holder: ${data.work_holder || 'Not specified'}
+- Equipment Name: ${data.equipment?.equipmentName || 'N/A'}
+- Equipment Type: ${data.equipment?.equipmentType || 'Motor'}
+- Test Date: ${data.inspectionDate ? new Date(data.inspectionDate).toLocaleDateString() : 'N/A'}
+- Done By: ${data.doneBy || 'N/A'}
+- Work Holder: ${data.workHolder || 'Not specified'}
 
 Test Results:
-- Winding Resistance R-Y: ${data.winding_resistance?.ry || 0} Ω
-- Winding Resistance Y-B: ${data.winding_resistance?.yb || 0} Ω
-- Winding Resistance R-B: ${data.winding_resistance?.rb || 0} Ω
-- IR U-G (1 min): ${data.ir_values?.ug_1min || 0} GΩ
-- IR V-G (1 min): ${data.ir_values?.vg_1min || 0} GΩ
-- IR W-G (1 min): ${data.ir_values?.wg_1min || 0} GΩ
-- PI Result: ${data.primary_pi?.pi_result || 'Not specified'}
+Winding Resistance:
+- R-Y: ${windingValues.ry || 0} Ω
+- Y-B: ${windingValues.yb || 0} Ω  
+- R-B: ${windingValues.rb || 0} Ω
+
+IR Values (1 min):
+- U-G: ${irValues.ug_1min || 0} GΩ
+- V-G: ${irValues.vg_1min || 0} GΩ
+- W-G: ${irValues.wg_1min || 0} GΩ
+
+IR Values (10 min):
+- U-G: ${irValues.ug_10min || 0} GΩ
+- V-G: ${irValues.vg_10min || 0} GΩ
+- W-G: ${irValues.wg_10min || 0} GΩ
+
+DAR Values:
+- U-G 30sec: ${darValues.ug_30sec || 0} GΩ
+- V-G 30sec: ${darValues.vg_30sec || 0} GΩ
+- W-G 30sec: ${darValues.wg_30sec || 0} GΩ
+
+PI Result: ${data.polarizationIndex || primaryPI.pi_result || 'Not calculated'}
 
 ${data.remarks ? `Remarks: ${data.remarks}` : ''}
 
 This email was automatically generated by Vale Equipment Management System
-    `
-  }),
+      `
+    }
+  },
 
   carbonBrush: (data: any) => ({
     subject: `New Carbon Brush Inspection - ${data.tagNo}`,
@@ -466,6 +539,8 @@ export async function sendWindingResistanceEmail(
   customRecipients?: string[], 
   includeExcel: boolean = true
 ) {
+  console.log('🔍 DEBUG - Raw data received in sendWindingResistanceEmail:', JSON.stringify(data, null, 2))
+  
   // Get appropriate recipients
   const recipients = getRecipients('winding-resistance', customRecipients)
   
@@ -478,24 +553,30 @@ export async function sendWindingResistanceEmail(
     throw new Error('No valid email recipients found')
   }
   
+  console.log('📧 Generating email template with data...')
   const template = emailTemplates.windingResistance(data)
+  
+  console.log('📋 Email subject:', template.subject)
+  console.log('📄 Email HTML preview:', template.html.substring(0, 300) + '...')
   
   let attachments: Array<{ filename: string; content: Buffer; type: string }> = []
   
   if (includeExcel) {
     try {
+      console.log('📊 Creating Excel attachment...')
       const excelBuffer = createDetailedExcelReport(data, 'winding')
       attachments.push({
         filename: `Winding-Resistance-Report-${data.motorNo || 'Unknown'}-${new Date().toISOString().split('T')[0]}.xlsx`,
         content: excelBuffer,
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       })
+      console.log('✅ Excel attachment created successfully')
     } catch (error) {
-      console.error('Error creating Excel attachment:', error)
+      console.error('❌ Error creating Excel attachment:', error)
     }
   }
   
-  console.log(`Sending winding resistance notification to: ${formatRecipientsDisplay(valid)}`)
+  console.log(`📤 Sending winding resistance notification to: ${formatRecipientsDisplay(valid)}`)
   
   return await sendEmail({
     to: valid,

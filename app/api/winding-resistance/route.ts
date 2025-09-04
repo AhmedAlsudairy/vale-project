@@ -160,6 +160,14 @@ export async function POST(request: NextRequest) {
         polarizationIndex: primary_pi?.pi_result ? Number.parseFloat(primary_pi.pi_result.toString()) : null,
         remarks: remarks || null,
       },
+      include: {
+        equipment: {
+          select: {
+            equipmentName: true,
+            equipmentType: true,
+          },
+        },
+      },
     })
 
     console.log("Created winding resistance record:", record) // Debug log
@@ -209,7 +217,15 @@ export async function POST(request: NextRequest) {
 
       // Send email notification with Excel attachment (mock mode)
       try {
-        await sendWindingResistanceEmail(mockRecord)
+        // Add equipment info to mock record for email
+        const mockRecordWithEquipment = {
+          ...mockRecord,
+          equipment: {
+            equipmentName: body.equipment_name || `Motor ${body.motor_no}`,
+            equipmentType: 'Motor'
+          }
+        }
+        await sendWindingResistanceEmail(mockRecordWithEquipment)
         console.log("Email notification sent successfully (mock mode)")
       } catch (emailError) {
         console.error("Failed to send email notification:", emailError)
