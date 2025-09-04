@@ -34,24 +34,21 @@ export async function POST(request: NextRequest) {
       case 'winding-resistance':
         result = await sendWindingResistanceEmail(
           params.data,
-          params.recipients || ['maintenance@vale.com'],
-          params.includeExcel !== false // Default to true
+          params.recipients // Custom recipients (optional)
         )
         break
 
       case 'carbon-brush':
         result = await sendCarbonBrushEmail(
           params.data,
-          params.recipients || ['maintenance@vale.com'],
-          params.includeExcel !== false // Default to true
+          params.recipients // Custom recipients (optional)
         )
         break
 
       case 'thermography':
         result = await sendThermographyEmail(
           params.data,
-          params.recipients || ['maintenance@vale.com'],
-          params.includeExcel !== false // Default to true
+          params.recipients // Custom recipients (optional)
         )
         break
 
@@ -59,33 +56,9 @@ export async function POST(request: NextRequest) {
         result = await sendFormNotification({
           formType: params.formType || 'Equipment Form',
           formData: params.formData || {},
-          customRecipients: params.recipients || ['maintenance@vale.com'],
+          customRecipients: params.recipients,
           customSubject: params.customSubject,
           customTemplate: params.customTemplate,
-          includeExcel: params.includeExcel || false,
-          excelData: params.excelData || null
-        })
-        break
-
-      case 'inspection-alert':
-        result = await sendInspectionAlert({
-          equipmentInfo: params.equipmentInfo || {},
-          alertType: params.alertType || 'Equipment Alert',
-          recipients: params.recipients || ['maintenance@vale.com'],
-          dueDate: params.dueDate,
-          priority: params.priority || 'normal'
-        })
-        break
-
-      case 'custom':
-        result = await sendCustomEmail({
-          to: params.to || ['maintenance@vale.com'],
-          subject: params.subject || 'Equipment Notification',
-          message: params.message || '',
-          data: params.data || {},
-          template: params.template || 'default',
-          priority: params.priority || 'normal',
-          attachments: params.attachments || [],
           includeExcel: params.includeExcel || false,
           excelData: params.excelData || null
         })
@@ -133,8 +106,6 @@ export async function GET() {
       'carbon-brush', 
       'thermography',
       'form-notification',
-      'inspection-alert',
-      'custom',
       'basic'
     ]
   })

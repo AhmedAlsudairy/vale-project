@@ -79,7 +79,9 @@ const createWindingResistanceExcelBuffer = (record: any): Buffer => {
     motorNo: record.motorNo,
     windingVals,
     irVals,
-    darVals
+    darVals,
+    windingUnits,
+    fullRecord: JSON.stringify(record, null, 2)
   })
   
   // Create data array in standard Excel table format
